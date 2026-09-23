@@ -5,7 +5,7 @@ import { Button, Card, EmptyState, Field, Icon, Input, ProgressBar, T } from '..
 import type { RootProps } from '../navigation/types';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
-import { currentMonth } from '../utils/dates';
+import { currentMonth, formatDate } from '../utils/dates';
 import { formatMoney } from '../utils/money';
 
 /** Os benefícios mais comuns, para não fazer ninguém digitar tudo do zero. */
@@ -67,6 +67,7 @@ export function WalletsScreen({ navigation }: RootProps<'Wallets'>) {
                 </View>
                 <T size={11.5} color="rgba(255,255,255,0.85)">
                   {formatMoney(used)} usados neste mês
+                  {s && s.pending > 0 ? ` · ${formatMoney(s.pending)} a cair${s.pendingDate ? ' em ' + formatDate(s.pendingDate) : ''}` : ''}
                 </T>
               </View>
             </View>
@@ -80,7 +81,8 @@ export function WalletsScreen({ navigation }: RootProps<'Wallets'>) {
         <Icon name="information-outline" size={18} color={colors.primary} />
         <T size={13} color={colors.textSecondary} style={{ flex: 1, lineHeight: 19 }}>
           O crédito mensal se cadastra como receita fixa, escolhendo o vale em "Onde cai". O limite total é
-          o que sobrou do mês anterior mais o crédito que entrou agora.
+          o que sobrou do mês anterior mais o crédito que já caiu — o que ainda vai entrar fica de fora
+          até a data chegar.
         </T>
       </View>
     </ScrollView>

@@ -160,6 +160,14 @@ export default function HomeScreen() {
                 <T size={11.5} color={colors.muted}>
                   {formatMoney(v.spent)} usados{v.previous !== 0 ? ` · ${formatMoney(v.previous)} veio do mês passado` : ''}
                 </T>
+                {v.pending > 0 ? (
+                  <View style={styles.vrPending}>
+                    <Icon name="clock-outline" size={14} color={colors.warning} />
+                    <T size={11.5} color={colors.textSecondary} style={{ flex: 1 }}>
+                      Mais {formatMoney(v.pending)} caem{v.pendingDate ? ` em ${formatDate(v.pendingDate)}` : ' ainda neste mês'} — ainda não dá para gastar.
+                    </T>
+                  </View>
+                ) : null}
               </View>
             );
           })}
@@ -295,6 +303,10 @@ const styles = StyleSheet.create({
   vr: { marginTop: 12, padding: 16, gap: 14, borderColor: colors.primarySoft },
   vrTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surface3, overflow: 'hidden' },
   vrFill: { height: '100%', borderRadius: 3 },
+  vrPending: {
+    flexDirection: 'row', alignItems: 'center', gap: 7,
+    backgroundColor: colors.warningSoft, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 7,
+  },
   vrIcon: {
     width: 40, height: 40, borderRadius: 13, backgroundColor: colors.primarySoft,
     alignItems: 'center', justifyContent: 'center',

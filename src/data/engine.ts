@@ -95,8 +95,12 @@ export interface WalletSummary {
   wallet: Wallet;
   /** Saldo que veio do ciclo anterior. */
   previous: number;
-  /** Crédito que entrou neste ciclo. */
+  /** Crédito que já caiu neste ciclo. */
   credited: number;
+  /** Crédito deste ciclo cuja data ainda não chegou — não dá para gastar ainda. */
+  pending: number;
+  /** Quando o próximo crédito cai, se ainda houver algum por vir. */
+  pendingDate: string | null;
   /** Gasto pago com este vale no ciclo. */
   spent: number;
   /** Tudo que dava para gastar: o que sobrou antes mais o crédito de agora. */
@@ -467,14 +471,36 @@ export class Ledger {
     return this.snap.wallets.length > 0;
   }
 
-  /** Quanto entrou e quanto saiu de um vale dentro do ciclo. */
+  /**
+   * O que entrou e o que saiu de um vale no ciclo.
+   *
+   * No ciclo corrente só vale o que já aconteceu: crédito com data à frente ainda não
+   * está no cartão, e mostrar esse dinheiro como disponível é mentira. Em ciclo futuro
+   * tudo conta, porque aí a tela inteira é previsão.
+   */
   walletFlow(walletId: number, cycle: string) {
     const d = this.month(cycle);
+    const now = today();
+    const ahead = cycle > this.currentCycle();
     let credited = 0;
+    let pending = 0;
+    let pendingDate: string | null = null;
     let spent = 0;
-    for (const i of d.incomes) if (i.method === VR && i.walletId === walletId) credited += i.amount;
-    for (const i of d.expenses) if (i.method === VR && i.walletId === walletId) spent += i.amount;
-    return { credited, spent };
+    for (const i of d.incomes) {
+      if (i.method !== VR || i.walletId !== walletId) continue;
+      if (!ahead && i.date > now) {
+        pending += i.amount;
+        if (!pendingDate || i.date < pendingDate) pendingDate = i.date;
+        continue;
+      }
+      credited += i.amount;
+    }
+    for (const i of d.expenses) {
+      if (i.method !== VR || i.walletId !== walletId) continue;
+      if (!ahead && i.date > now) continue; // compra marcada para depois ainda não saiu
+      spent += i.amount;
+    }
+    return { credited, pending, pendingDate, spent };
   }
 
   /** Saldo de um vale no fim do ciclo, acumulado desde o primeiro lançamento. */
@@ -499,10 +525,10 @@ export class Ledger {
   walletSummary(walletId: number, cycle: string): WalletSummary | undefined {
     const wallet = this.wallet(walletId);
     if (!wallet) return undefined;
-    const { credited, spent } = this.walletFlow(walletId, cycle);
+    const { credited, pending, pendingDate, spent } = this.walletFlow(walletId, cycle);
     const previous = this.walletBalance(walletId, addMonths(cycle, -1));
     const total = previous + credited;
-    return { wallet, previous, credited, spent, total, left: total - spent };
+    return { wallet, previous, credited, pending, pendingDate, spent, total, left: total - spent };
   }
 
   /** Resumo de todos os vales ativos no ciclo. */
