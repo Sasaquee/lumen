@@ -676,10 +676,17 @@ export class Ledger {
     return [...m.expenses, ...m.invoices.filter((i) => i.total > 0).map((i) => this.invoiceItem(i))];
   }
 
-  /** Todas as despesas do mês: avulsas, itens de fatura e a parte não detalhada. */
-  expenseItems(month: string): Item[] {
+  /**
+   * Todas as despesas do mês: avulsas, itens de fatura e a parte não detalhada.
+   *
+   * Gasto de vale fica de fora por padrão, para o gráfico fechar com o total de
+   * despesas do mês — ele não saiu do caixa. Com `withWallets`, entra também, e aí
+   * o gráfico mostra o consumo inteiro em vez de só o dinheiro.
+   */
+  expenseItems(month: string, withWallets = false): Item[] {
     const m = this.month(month);
-    const out = [...m.expenses, ...m.invoices.flatMap((i) => i.items)];
+    const plain = withWallets ? m.expenses : m.expenses.filter((i) => i.method !== VR);
+    const out = [...plain, ...m.invoices.flatMap((i) => i.items)];
     for (const inv of m.invoices) if (inv.undetailed > 0) out.push(this.undetailedItem(inv));
     return out;
   }
@@ -704,26 +711,26 @@ export class Ledger {
       .sort((a, b) => b.value - a.value);
   }
 
-  byCategory(month: string, mode: CardMode = 'grouped') {
-    return this.groupByCategory(this.expenseItems(month), mode);
+  byCategory(month: string, mode: CardMode = 'grouped', withWallets = false) {
+    return this.groupByCategory(this.expenseItems(month, withWallets), mode);
   }
 
   /**
    * Gastos por categoria num intervalo de datas (inclusive), no nível do dia.
    * Soma pela data em que o dinheiro sai, então cada parcela conta uma vez só.
    */
-  byCategoryRange(from: string, to: string, mode: CardMode = 'grouped') {
-    return this.groupByCategory(this.itemsBetween(from, to), mode);
+  byCategoryRange(from: string, to: string, mode: CardMode = 'grouped', withWallets = false) {
+    return this.groupByCategory(this.itemsBetween(from, to, withWallets), mode);
   }
 
   /** Despesas cuja saída de dinheiro cai entre `from` e `to` (inclusive). */
-  itemsBetween(from: string, to: string): Item[] {
-    if (from > to) return this.itemsBetween(to, from);
+  itemsBetween(from: string, to: string, withWallets = false): Item[] {
+    if (from > to) return this.itemsBetween(to, from, withWallets);
     const out: Item[] = [];
     const last = this.cycleOf(to);
     let c = this.cycleOf(from);
     for (let guard = 0; guard < 600 && c <= last; guard++, c = addMonths(c, 1)) {
-      for (const it of this.expenseItems(c)) {
+      for (const it of this.expenseItems(c, withWallets)) {
         if (it.dueDate >= from && it.dueDate <= to) out.push(it);
       }
     }

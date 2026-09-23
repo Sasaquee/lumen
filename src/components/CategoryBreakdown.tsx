@@ -24,13 +24,15 @@ export function CategoryBreakdown() {
   const { ledger, month } = useStore();
   const nav = useNavigation();
   const [cardMode, setCardMode] = useState<CardMode>('grouped');
+  // gasto de vale entra só quando pedido: por padrão o gráfico fecha com as despesas do mês
+  const [withWallets, setWithWallets] = useState(false);
   const [range, setRange] = useState<Range | null>(null);
   const [hidden, setHidden] = useState<Set<number | null>>(new Set());
   const [sheet, setSheet] = useState<null | 'period' | 'cats'>(null);
   const [draft, setDraft] = useState<Range>({ from: shiftDays(today(), -6), to: today() });
 
   const rows = useMemo(
-    () => (range ? ledger.byCategoryRange(range.from, range.to, cardMode) : ledger.byCategory(month, cardMode)),
+    () => (range ? ledger.byCategoryRange(range.from, range.to, cardMode, withWallets) : ledger.byCategory(month, cardMode, withWallets)),
     [ledger, month, cardMode, range],
   );
 
@@ -104,11 +106,27 @@ export function CategoryBreakdown() {
               {cardMode === 'grouped' ? 'Abrir cartões' : 'Agrupar cartões'}
             </T>
           </Pressable>
+          {ledger.usesVr ? (
+            <Pressable
+              onPress={() => { tap(); setWithWallets((v) => !v); }}
+              style={[styles.pill, withWallets && styles.pillOn]}
+            >
+              <Icon name="silverware-fork-knife" size={16} color={withWallets ? colors.primary : colors.textSecondary} />
+              <T size={13} weight="medium" color={withWallets ? colors.primary : colors.textSecondary}>
+                {withWallets ? 'Com vales' : 'Incluir vales'}
+              </T>
+            </Pressable>
+          ) : null}
         </ScrollView>
 
         {visible.length ? (
           <>
             <CategoryDonut data={visible} onSelect={openGroup} />
+            {withWallets ? (
+              <T size={12} color={colors.muted} align="center" style={{ marginTop: 4 }}>
+                Inclui o que foi pago com vale, que não sai do caixa.
+              </T>
+            ) : null}
             {filtered ? (
               <T size={12.5} color={colors.muted} align="center" style={{ marginTop: 4 }}>
                 {formatMoney(totalVisible)} de {formatMoney(totalAll)} ({Math.round((totalVisible / totalAll) * 100)}% do período)
