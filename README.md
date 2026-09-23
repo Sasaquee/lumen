@@ -7,7 +7,7 @@
 Controle financeiro pessoal para Android. Gastos avulsos, contas fixas, parcelamentos
 e faturas de cartão num lugar só, com os dados guardados **apenas no seu aparelho**.
 
-[**⬇ Baixar o APK**](https://github.com/Sasaquee/lumen/releases/latest) · [Como instalar](#instalar) · [Privacidade](#privacidade)
+[**🌐 Ver o site**](https://sasaquee.github.io/lumen/) · [**⬇ Baixar o APK**](https://github.com/Sasaquee/lumen/releases/latest) · [Como instalar](#instalar) · [Privacidade](#privacidade)
 
 <br>
 

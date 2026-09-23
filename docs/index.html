@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumen — saiba quanto sobra no fim do mês</title>
+<meta name="description" content="Controle financeiro pessoal para Android. Gastos, contas fixas, parcelamentos e faturas de cartão num lugar só, com os dados guardados apenas no seu aparelho.">
+<meta name="theme-color" content="#0B0F14">
+<link rel="icon" href="favicon.png">
+<meta property="og:title" content="Lumen — saiba quanto sobra no fim do mês">
+<meta property="og:description" content="Controle financeiro pessoal para Android. Sem login, sem servidor: os dados ficam só no seu aparelho.">
+<meta property="og:image" content="screenshots/inicio.png">
+<meta property="og:type" content="website">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0F14; --surface:#141B23; --surface2:#1B2430; --surface3:#243040;
+    --line:rgba(255,255,255,.08); --text:#F2F5F7; --text2:#A3B0BD; --muted:#6E7B89;
+    --primary:#3BE08F; --primary-dark:#16A865; --primary-soft:rgba(59,224,143,.14);
+    --warning:#F5B544; --expense:#F0875A; --violet:#9085E9; --blue:#3987E5;
+    --r-sm:10px; --r-md:14px; --r-lg:20px; --r-xl:28px;
+    --wrap:1160px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--text);
+    font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+    line-height:1.6; -webkit-font-smoothing:antialiased; overflow-x:hidden;
+  }
+  a{color:inherit;text-decoration:none}
+  img{display:block;max-width:100%}
+  .wrap{width:100%;max-width:var(--wrap);margin:0 auto;padding:0 24px}
+
+  /* ---------- glow de fundo ---------- */
+  .glow{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+  .glow::before,.glow::after{content:"";position:absolute;border-radius:50%;filter:blur(120px);opacity:.16}
+  .glow::before{width:620px;height:620px;background:var(--primary);top:-260px;left:-160px}
+  .glow::after{width:520px;height:520px;background:var(--violet);top:380px;right:-220px;opacity:.13}
+
+  /* ---------- header ---------- */
+  header{
+    position:sticky;top:0;z-index:50;
+    background:rgba(11,15,20,.72);backdrop-filter:blur(14px);
+    border-bottom:1px solid transparent;transition:border-color .25s
+  }
+  header.scrolled{border-bottom-color:var(--line)}
+  .nav{display:flex;align-items:center;gap:16px;height:68px}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.3px}
+  .brand img{width:30px;height:30px}
+  .nav-links{margin-left:auto;display:flex;gap:26px;align-items:center}
+  .nav-links a{color:var(--text2);font-size:14.5px;font-weight:500;transition:color .2s}
+  .nav-links a:hover{color:var(--text)}
+  @media(max-width:820px){.nav-links a:not(.btn){display:none}}
+
+  /* ---------- botões ---------- */
+  .btn{
+    display:inline-flex;align-items:center;gap:9px;
+    padding:12px 22px;border-radius:999px;font-weight:600;font-size:15px;
+    border:1px solid transparent;cursor:pointer;transition:transform .18s, box-shadow .18s, background .18s;
+    white-space:nowrap
+  }
+  .btn.btn-primary{background:var(--primary);color:#06251A;box-shadow:0 8px 28px rgba(59,224,143,.26)}
+  .btn.btn-primary:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(59,224,143,.34)}
+  .btn.btn-ghost{background:var(--surface2);color:var(--text);border-color:var(--line)}
+  .btn.btn-ghost:hover{background:var(--surface3);transform:translateY(-2px)}
+  .btn-sm{padding:9px 17px;font-size:14px}
+
+  /* ---------- hero ---------- */
+  .hero{position:relative;z-index:1;padding:76px 0 40px}
+  .hero-grid{display:grid;grid-template-columns:1fr 340px;gap:60px;align-items:center}
+  @media(max-width:940px){.hero-grid{grid-template-columns:1fr;gap:44px}}
+  .pill{
+    display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border-radius:999px;
+    background:var(--primary-soft);color:var(--primary);font-size:13px;font-weight:600;
+    border:1px solid rgba(59,224,143,.22);margin-bottom:22px
+  }
+  .pill .dot{width:6px;height:6px;border-radius:50%;background:var(--primary);animation:pulse 2s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.8)}}
+  h1{
+    font-size:clamp(38px,6.2vw,62px);line-height:1.06;font-weight:800;letter-spacing:-1.8px;margin-bottom:20px
+  }
+  h1 .hl{
+    background:linear-gradient(100deg,var(--primary),#7EE8C0);
+    -webkit-background-clip:text;background-clip:text;color:transparent
+  }
+  .lead{font-size:clamp(16px,2vw,18.5px);color:var(--text2);max-width:540px;margin-bottom:30px}
+  .cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:26px}
+  .meta{display:flex;gap:22px;flex-wrap:wrap;color:var(--muted);font-size:13.5px}
+  .meta span{display:flex;align-items:center;gap:7px}
+
+  /* ---------- moldura do celular ---------- */
+  .phone{
+    position:relative;width:100%;max-width:330px;margin:0 auto;
+    border-radius:38px;padding:9px;
+    background:linear-gradient(160deg,#2B3644,#151C25);
+    box-shadow:0 40px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05);
+  }
+  .phone::after{
+    content:"";position:absolute;left:50%;transform:translateX(-50%);top:17px;
+    width:78px;height:5px;border-radius:3px;background:rgba(255,255,255,.14)
+  }
+  .phone-screen{
+    position:relative;border-radius:30px;overflow:hidden;background:var(--bg);
+    aspect-ratio:1080/2244
+  }
+  .phone-screen img{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:top;
+    opacity:0;transform:scale(1.02);transition:opacity .42s ease, transform .42s ease
+  }
+  .phone-screen img.on{opacity:1;transform:scale(1)}
+  .hero .phone{animation:float 7s ease-in-out infinite}
+  @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-14px)}}
+  @media(prefers-reduced-motion:reduce){
+    .hero .phone{animation:none}
+    .pill .dot{animation:none}
+    .reveal{opacity:1!important;transform:none!important}
+  }
+
+  /* ---------- seções ---------- */
+  section{position:relative;z-index:1;padding:80px 0}
+  .eyebrow{color:var(--primary);font-size:13px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:12px}
+  h2{font-size:clamp(28px,4vw,42px);line-height:1.14;letter-spacing:-1.1px;font-weight:800;margin-bottom:14px}
+  .sub{color:var(--text2);font-size:17px;max-width:620px}
+
+  /* ---------- explorador ---------- */
+  .explorer{display:grid;grid-template-columns:1fr 330px;gap:56px;align-items:start;margin-top:44px}
+  @media(max-width:940px){.explorer{grid-template-columns:1fr;gap:34px}
+    .explorer .phone-col{order:-1;position:static!important}}
+  .phone-col{position:sticky;top:104px}
+  .feat{
+    width:100%;text-align:left;display:flex;gap:16px;align-items:flex-start;
+    background:transparent;border:1px solid transparent;border-radius:var(--r-md);
+    padding:16px 18px;cursor:pointer;color:inherit;font-family:inherit;
+    transition:background .2s,border-color .2s,transform .2s
+  }
+  .feat:hover{background:var(--surface)}
+  .feat[aria-selected="true"]{background:var(--surface);border-color:rgba(59,224,143,.3)}
+  .feat-ico{
+    flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
+    background:var(--surface2);font-size:19px;transition:background .2s
+  }
+  .feat[aria-selected="true"] .feat-ico{background:var(--primary-soft)}
+  .feat h3{font-size:16.5px;font-weight:600;margin-bottom:3px;letter-spacing:-.2px}
+  .feat p{font-size:14px;color:var(--text2);line-height:1.55}
+  .feat[aria-selected="true"] h3{color:var(--primary)}
+  .feat-list{display:flex;flex-direction:column;gap:4px}
+  .progress{height:2px;background:var(--surface3);border-radius:2px;margin-top:14px;overflow:hidden}
+  .progress i{display:block;height:100%;width:0;background:var(--primary);border-radius:2px}
+
+  /* ---------- destaque com número ---------- */
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:18px;margin-top:44px}
+  .card{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:26px;
+    transition:transform .25s,border-color .25s
+  }
+  .card:hover{transform:translateY(-4px);border-color:rgba(59,224,143,.26)}
+  .card .ico{font-size:24px;margin-bottom:14px;display:block}
+  .card h3{font-size:17px;font-weight:600;margin-bottom:7px}
+  .card p{color:var(--text2);font-size:14.5px}
+
+  /* ---------- galeria ---------- */
+  .gallery{display:flex;gap:18px;overflow-x:auto;padding:36px 24px 30px;scroll-snap-type:x mandatory;
+    margin:0 calc(50% - 50vw);scrollbar-width:none}
+  .gallery::-webkit-scrollbar{display:none}
+  .gallery::before,.gallery::after{content:"";flex:none;width:max(0px,calc(50vw - var(--wrap)/2))}
+  .shot{
+    flex:none;width:210px;border-radius:20px;overflow:hidden;border:1px solid var(--line);
+    scroll-snap-align:center;cursor:zoom-in;background:var(--surface);
+    transition:transform .25s,border-color .25s
+  }
+  .shot:hover{transform:translateY(-6px) scale(1.015);border-color:rgba(59,224,143,.3)}
+  .shot img{width:100%}
+  .shot span{display:block;padding:11px 14px;font-size:13px;color:var(--text2);text-align:center}
+
+  /* ---------- lightbox ---------- */
+  .lb{
+    position:fixed;inset:0;z-index:200;background:rgba(6,9,12,.93);backdrop-filter:blur(8px);
+    display:grid;place-items:center;padding:28px;opacity:0;pointer-events:none;transition:opacity .25s
+  }
+  .lb.on{opacity:1;pointer-events:auto}
+  .lb img{max-height:86vh;border-radius:26px;box-shadow:0 30px 80px rgba(0,0,0,.7)}
+  .lb-close{position:absolute;top:22px;right:24px;background:var(--surface2);border:1px solid var(--line);
+    color:var(--text);width:42px;height:42px;border-radius:50%;font-size:20px;cursor:pointer}
+  .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:var(--surface2);
+    border:1px solid var(--line);color:var(--text);width:46px;height:46px;border-radius:50%;
+    font-size:20px;cursor:pointer;display:grid;place-items:center}
+  .lb-prev{left:20px} .lb-next{right:20px}
+
+  /* ---------- privacidade ---------- */
+  .privacy{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);padding:clamp(28px,5vw,52px)}
+  .privacy ul{list-style:none;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:22px;margin-top:28px}
+  .privacy li{display:flex;gap:13px;align-items:flex-start;font-size:15px;color:var(--text2)}
+  .privacy li b{display:block;color:var(--text);font-weight:600;margin-bottom:3px}
+  .check{flex:none;width:24px;height:24px;border-radius:50%;background:var(--primary-soft);color:var(--primary);
+    display:grid;place-items:center;font-size:13px;font-weight:700;margin-top:1px}
+
+  /* ---------- instalar ---------- */
+  .steps{counter-reset:s;display:grid;gap:16px;margin-top:34px}
+  .step{display:flex;gap:16px;align-items:flex-start;background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-md);padding:20px 22px}
+  .step::before{
+    counter-increment:s;content:counter(s);flex:none;width:30px;height:30px;border-radius:50%;
+    background:var(--primary-soft);color:var(--primary);display:grid;place-items:center;
+    font-weight:700;font-size:14px
+  }
+  .step p{font-size:15px;color:var(--text2)}
+  .step p b{color:var(--text);font-weight:600}
+  .note{margin-top:22px;font-size:14px;color:var(--muted)}
+
+  /* ---------- rodapé ---------- */
+  footer{border-top:1px solid var(--line);padding:44px 0;margin-top:40px;position:relative;z-index:1}
+  .foot{display:flex;gap:18px;align-items:center;flex-wrap:wrap;color:var(--muted);font-size:14px}
+  .foot a{color:var(--text2);transition:color .2s}
+  .foot a:hover{color:var(--primary)}
+  .foot .sep{margin-left:auto}
+
+  /* ---------- reveal ---------- */
+  .reveal{opacity:0;transform:translateY(22px);transition:opacity .6s ease,transform .6s ease}
+  .reveal.in{opacity:1;transform:none}
+</style>
+</head>
+<body>
+<div class="glow"></div>
+
+<header id="hd">
+  <div class="wrap nav">
+    <a class="brand" href="#top"><img src="logo.png" alt=""> Lumen</a>
+    <nav class="nav-links">
+      <a href="#recursos">Recursos</a>
+      <a href="#telas">Telas</a>
+      <a href="#privacidade">Privacidade</a>
+      <a href="#instalar">Instalar</a>
+      <a class="btn btn-primary btn-sm" href="https://github.com/Sasaquee/lumen/releases/latest">Baixar APK</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="pill"><span class="dot"></span> Android · grátis · sem conta</span>
+      <h1>Saiba quanto <span class="hl">sobra</span> no fim do mês — antes que o mês acabe.</h1>
+      <p class="lead">
+        A maioria dos apps conta o que você já gastou. O Lumen soma o que já aconteceu
+        com o que está contratado — a parcela 4 de 12, o aluguel do dia 10, a fatura que
+        fecha semana que vem — e mostra a sobra prevista.
+      </p>
+      <div class="cta">
+        <a class="btn btn-primary" href="https://github.com/Sasaquee/lumen/releases/latest">⬇ Baixar o APK</a>
+        <a class="btn btn-ghost" href="#recursos">Ver como funciona</a>
+      </div>
+      <div class="meta">
+        <span>🔒 Dados só no aparelho</span>
+        <span>📡 Funciona offline</span>
+        <span>🆓 Código aberto (MIT)</span>
+      </div>
+    </div>
+    <div class="phone">
+      <div class="phone-screen">
+        <img src="screenshots/inicio.png" alt="Tela inicial do Lumen" class="on">
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="recursos">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="eyebrow">Recursos</p>
+      <h2>Toque num item e veja a tela</h2>
+      <p class="sub">Doze telas do app, com dados de exemplo. Use as setas do teclado para navegar.</p>
+    </div>
+
+    <div class="explorer">
+      <div class="feat-list" id="feats" role="tablist" aria-label="Recursos do Lumen"></div>
+      <div class="phone-col">
+        <div class="phone">
+          <div class="phone-screen" id="stage"></div>
+        </div>
+        <div class="progress"><i id="bar"></i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="telas" style="padding-bottom:40px">
+  <div class="wrap reveal">
+    <p class="eyebrow">Telas</p>
+    <h2>O app inteiro, de relance</h2>
+    <p class="sub">Arraste para o lado. Clique numa tela para ampliar.</p>
+  </div>
+  <div class="gallery" id="gal"></div>
+</section>
+
+<section id="porque">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="eyebrow">Por quê</p>
+      <h2>Três problemas que o Lumen resolve</h2>
+    </div>
+    <div class="cards reveal">
+      <div class="card">
+        <span class="ico">🧾</span>
+        <h3>Você não lembra tudo que gastou no cartão</h3>
+        <p>Informe só o <b>total da fatura</b> e detalhe o que lembrar. A diferença vira "gasto não detalhado" em vez de sumir da conta.</p>
+      </div>
+      <div class="card">
+        <span class="ico">📅</span>
+        <h3>A assinatura ainda não foi cobrada</h3>
+        <p>O banco só lança no dia. O Lumen mostra <b>já cobrado</b> e <b>projeção</b> lado a lado — e quanto você economiza cancelando antes.</p>
+      </div>
+      <div class="card">
+        <span class="ico">💳</span>
+        <h3>O limite do banco engana</h3>
+        <p>O cálculo soma as faturas em aberto deste mês em diante, com as parcelas que ainda vão cair. Menor, e mais honesto.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="privacidade">
+  <div class="wrap">
+    <div class="privacy reveal">
+      <p class="eyebrow">Privacidade</p>
+      <h2>Seu dinheiro não é da conta de ninguém</h2>
+      <p class="sub">O Lumen não tem servidor. Não há cadastro, login nem conta para criar.</p>
+      <ul>
+        <li><span class="check">✓</span><span><b>Nada sai do aparelho</b>Tudo fica num banco SQLite na área privada do app.</span></li>
+        <li><span class="check">✓</span><span><b>Sem rastreio</b>Nenhum serviço de análise, anúncio ou telemetria.</span></li>
+        <li><span class="check">✓</span><span><b>Backup é seu</b>Exporte um .json e escolha onde guardar.</span></li>
+        <li><span class="check">✓</span><span><b>Código aberto</b>Dá para ler cada linha antes de instalar.</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="instalar">
+  <div class="wrap">
+    <div class="reveal">
+      <p class="eyebrow">Instalar</p>
+      <h2>Três passos</h2>
+      <p class="sub">Requer Android 7.0 ou superior.</p>
+    </div>
+    <div class="steps reveal">
+      <div class="step"><p>Baixe o <b>APK</b> na página de releases do repositório.</p></div>
+      <div class="step"><p>O Android vai pedir permissão para instalar de <b>fontes desconhecidas</b> — é esperado, o app não está na Play Store.</p></div>
+      <div class="step"><p>O Play Protect pode exibir um aviso, porque o APK é assinado com uma chave de desenvolvimento. Toque em <b>Instalar mesmo assim</b>.</p></div>
+    </div>
+    <p class="note">As capturas desta página vêm de uma build de demonstração com dados fictícios.</p>
+    <div class="cta" style="margin-top:28px">
+      <a class="btn btn-primary" href="https://github.com/Sasaquee/lumen/releases/latest">⬇ Baixar o APK</a>
+      <a class="btn btn-ghost" href="https://github.com/Sasaquee/lumen">Ver o código</a>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap foot">
+    <a class="brand" href="#top" style="font-size:16px"><img src="logo.png" alt="" style="width:24px;height:24px"> Lumen</a>
+    <span class="sep"></span>
+    <a href="https://github.com/Sasaquee/lumen">Repositório</a>
+    <a href="https://github.com/Sasaquee/lumen/releases/latest">Releases</a>
+    <a href="https://github.com/Sasaquee/lumen/blob/main/LICENSE">Licença MIT</a>
+  </div>
+</footer>
+
+<div class="lb" id="lb">
+  <button class="lb-close" id="lbX" aria-label="Fechar">✕</button>
+  <button class="lb-nav lb-prev" id="lbP" aria-label="Anterior">‹</button>
+  <img id="lbImg" src="" alt="">
+  <button class="lb-nav lb-next" id="lbN" aria-label="Próxima">›</button>
+</div>
+
+<script>
+const FEATS = [
+  ['inicio','🏠','Sobra prevista','Receitas menos tudo que ainda vai sair, com o quanto da renda já está comprometida e quanto sobra por dia.'],
+  ['lancamento','⚡','Lançar em segundos','Avulso, parcelado ou fixo mensal. No parcelado, informe o total ou o valor da parcela — o app converte um no outro.'],
+  ['fatura','🧾','Fatura do cartão','Informe o total e detalhe só o que lembrar. O resto vira "gasto não detalhado" e continua contando no mês.'],
+  ['projecao','🔮','Já cobrado × projeção','O banco só lança a assinatura no dia da cobrança. Veja os dois valores e o que ainda falta cobrar.'],
+  ['cartoes','💳','Limite de verdade','Limite restante e porcentagem usada, somando as faturas em aberto deste mês em diante.'],
+  ['mes','📋','O mês filtrado','Filtre por grupo de gasto e por status, ordene por valor, vencimento ou número de parcelas.'],
+  ['categorias','🍩','Para onde o dinheiro foi','Rosca por categoria, com o cartão agrupado ou aberto, e a pizza de pago × a pagar.'],
+  ['tendencia','📈','12 meses à frente','Barras de receita contra despesa e a linha de projeção, já contando parcelas e fixos.'],
+  ['tabela','📊','Tabela analítica','6, 12 ou 24 meses em linhas de receita, despesa e sobra, com a variação mês a mês.'],
+  ['avisos','🔔','Central de avisos','Tudo em aberto agrupado por urgência: vencidas, próximos 7 dias e mais adiante.'],
+  ['proximos','⏰','Próximos pagamentos','O que vence a seguir no período, com as contas atrasadas destacadas.'],
+  ['ciclo','🗓️','Seu mês, seu ciclo','Recebe dia 5 e paga até o dia 4? Ajuste o início do mês financeiro sem mexer em nenhum lançamento.'],
+];
+
+/* ---------- explorador ---------- */
+const stage = document.getElementById('stage');
+const list  = document.getElementById('feats');
+const bar   = document.getElementById('bar');
+let cur = 0, timer = null, auto = true;
+
+FEATS.forEach(([slug, ico, title, desc], i) => {
+  const img = document.createElement('img');
+  img.src = 'screenshots/' + slug + '.png';
+  img.alt = title;
+  img.loading = i < 2 ? 'eager' : 'lazy';
+  if (i === 0) img.classList.add('on');
+  stage.appendChild(img);
+
+  const b = document.createElement('button');
+  b.className = 'feat';
+  b.setAttribute('role', 'tab');
+  b.setAttribute('aria-selected', i === 0);
+  b.innerHTML = '<span class="feat-ico">' + ico + '</span><span><h3>' + title + '</h3><p>' + desc + '</p></span>';
+  b.addEventListener('click', () => { stop(); show(i); });
+  list.appendChild(b);
+});
+
+const imgs = stage.querySelectorAll('img');
+const tabs = list.querySelectorAll('.feat');
+
+function show(i){
+  cur = (i + FEATS.length) % FEATS.length;
+  imgs.forEach((el, k) => el.classList.toggle('on', k === cur));
+  tabs.forEach((el, k) => el.setAttribute('aria-selected', k === cur));
+  restartBar();
+}
+function restartBar(){
+  bar.style.transition = 'none'; bar.style.width = '0';
+  if (!auto) return;
+  requestAnimationFrame(() => {
+    bar.style.transition = 'width 5s linear';
+    bar.style.width = '100%';
+  });
+}
+function stop(){
+  auto = false; clearInterval(timer);
+  bar.style.transition = 'none'; bar.style.width = '0';
+}
+function start(){
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { auto = false; return; }
+  timer = setInterval(() => show(cur + 1), 5000);
+  restartBar();
+}
+
+document.addEventListener('keydown', e => {
+  if (document.getElementById('lb').classList.contains('on')) return;
+  if (e.key === 'ArrowRight'){ stop(); show(cur + 1); }
+  if (e.key === 'ArrowLeft'){ stop(); show(cur - 1); }
+});
+
+// só roda o carrossel quando a seção está à vista
+const secObs = new IntersectionObserver(es => {
+  es.forEach(e => {
+    if (e.isIntersecting && auto && !timer) start();
+    else if (!e.isIntersecting && timer) { clearInterval(timer); timer = null; bar.style.width = '0'; }
+  });
+}, { threshold: .3 });
+secObs.observe(document.getElementById('recursos'));
+
+/* ---------- galeria + lightbox ---------- */
+const gal = document.getElementById('gal');
+FEATS.forEach(([slug,, title]) => {
+  const a = document.createElement('figure');
+  a.className = 'shot';
+  a.innerHTML = '<img src="screenshots/' + slug + '.png" alt="' + title + '" loading="lazy"><span>' + title + '</span>';
+  a.addEventListener('click', () => openLb(slug, title));
+  gal.appendChild(a);
+});
+
+const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
+let lbI = 0;
+function openLb(slug, title){
+  lbI = FEATS.findIndex(f => f[0] === slug);
+  lbImg.src = 'screenshots/' + slug + '.png'; lbImg.alt = title;
+  lb.classList.add('on'); document.body.style.overflow = 'hidden';
+}
+function moveLb(d){
+  lbI = (lbI + d + FEATS.length) % FEATS.length;
+  lbImg.src = 'screenshots/' + FEATS[lbI][0] + '.png'; lbImg.alt = FEATS[lbI][2];
+}
+function closeLb(){ lb.classList.remove('on'); document.body.style.overflow = ''; }
+document.getElementById('lbX').onclick = closeLb;
+document.getElementById('lbP').onclick = e => { e.stopPropagation(); moveLb(-1); };
+document.getElementById('lbN').onclick = e => { e.stopPropagation(); moveLb(1); };
+lb.addEventListener('click', e => { if (e.target === lb || e.target === lbImg) closeLb(); });
+document.addEventListener('keydown', e => {
+  if (!lb.classList.contains('on')) return;
+  if (e.key === 'Escape') closeLb();
+  if (e.key === 'ArrowRight') moveLb(1);
+  if (e.key === 'ArrowLeft') moveLb(-1);
+});
+
+/* ---------- reveal + header ---------- */
+const rev = new IntersectionObserver(es => {
+  es.forEach(e => { if (e.isIntersecting){ e.target.classList.add('in'); rev.unobserve(e.target); } });
+}, { threshold: .12 });
+document.querySelectorAll('.reveal').forEach(el => rev.observe(el));
+
+const hd = document.getElementById('hd');
+addEventListener('scroll', () => hd.classList.toggle('scrolled', scrollY > 10), { passive: true });
+</script>
+</body>
+</html>
