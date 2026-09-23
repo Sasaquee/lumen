@@ -1,18 +1,207 @@
+<div align="center">
+
 # Lumen
 
-App Android de controle financeiro pessoal: gastos avulsos, fixos mensais, parcelamentos, faturas de cartão e dashboard com gráficos. Dados ficam só no celular (SQLite), com backup em JSON.
+**Saiba quanto sobra no fim do mês — antes que o mês acabe.**
 
-## Stack
+Controle financeiro pessoal para Android. Gastos avulsos, contas fixas, parcelamentos
+e faturas de cartão num lugar só, com os dados guardados **apenas no seu aparelho**.
+
+[**⬇ Baixar o APK**](https://github.com/Sasaquee/lumen/releases/latest) · [Como instalar](#instalar) · [Privacidade](#privacidade)
+
+<br>
+
+<img src="docs/screenshots/inicio.png" width="200" alt="Tela inicial">
+<img src="docs/screenshots/mes.png" width="200" alt="Lançamentos do mês">
+<img src="docs/screenshots/fatura.png" width="200" alt="Fatura do cartão">
+<img src="docs/screenshots/categorias.png" width="200" alt="Gastos por categoria">
+
+</div>
+
+---
+
+## Por que o Lumen existe
+
+A maioria dos apps de finanças conta o que você **já gastou**. O Lumen foi feito para
+responder outra pergunta: *quanto ainda vai sair da minha conta este mês?*
+
+Ele soma o que já aconteceu com o que está contratado — a parcela 4 de 12, o aluguel
+do dia 10, a fatura que fecha semana que vem — e mostra a sobra prevista. Sem login,
+sem servidor, sem sincronizar nada com ninguém.
+
+---
+
+## O que ele faz
+
+### Um número que resume o mês
+
+<img src="docs/screenshots/inicio.png" width="230" align="right" alt="Tela inicial">
+
+A tela inicial abre na **sobra prevista**: receitas menos tudo que ainda vai sair.
+Abaixo dela, quanto da renda já está comprometida, o que já foi pago, o que falta
+pagar e quanto sobra por dia até o fim do período.
+
+Os três cartões — **Fixos**, **Parcelas** e **Avulsos** — mostram de onde vem o gasto
+do mês, e a lista de **próximos pagamentos** avisa o que vence em seguida, com as
+contas atrasadas em vermelho.
+
+<br clear="right">
+
+### Lançar em segundos
+
+<img src="docs/screenshots/lancamento.png" width="230" align="right" alt="Novo lançamento">
+
+Três tipos, um formulário só:
+
+- **Avulso** — o mercado, o jantar, a farmácia
+- **Parcelado** — informe o total **ou** o valor da parcela, e o app converte um no outro
+- **Fixo mensal** — repete todo mês sozinho, com data de início e de fim opcional
+
+Antes de salvar, uma prévia mostra exatamente onde a compra vai cair: *"3x de R$ 630,00 ·
+total R$ 1.890,00 · de Set/26 até Nov/26"*. No cartão, ela diz em qual fatura a compra
+entra e quando essa fatura vence.
+
+<br clear="right">
+
+### Faturas de cartão que batem com a realidade
+
+<img src="docs/screenshots/fatura.png" width="230" align="right" alt="Fatura do cartão">
+
+Cadastre o dia de fechamento e o de vencimento: a compra cai sozinha na fatura certa,
+e a parcela de cada mês vai para a fatura daquele mês.
+
+O recurso que resolve o problema real de quem usa cartão: **não lembra tudo que gastou?**
+Informe só o **total da fatura** e detalhe o que lembrar. A diferença vira *"gasto não
+detalhado"* em vez de sumir da conta — você fica com o valor certo no mês mesmo sem
+lançar item por item.
+
+<br clear="right">
+
+### Já cobrado × projeção
+
+<img src="docs/screenshots/projecao.png" width="230" align="right" alt="Já cobrado e projeção">
+
+O banco só lança uma assinatura no **dia da cobrança**. Até lá, o app do banco mostra
+um valor e o seu planejamento mostra outro.
+
+O Lumen mostra os dois: o que já foi cobrado e a projeção com as assinaturas que ainda
+vêm. Um toque no **?** lista o que falta cobrar, com data e valor — é quanto você
+economiza se cancelar antes.
+
+<br clear="right">
+
+### Quanto sobrou de limite
+
+<img src="docs/screenshots/cartoes.png" width="230" align="right" alt="Cartões">
+
+Cada cartão mostra a próxima fatura, o **limite restante** e a porcentagem usada.
+
+O cálculo soma as faturas em aberto deste mês em diante — inclusive as parcelas que
+ainda vão cair nos próximos meses. É por isso que o número costuma ser menor (e mais
+honesto) que o do app do banco.
+
+<br clear="right">
+
+### O mês inteiro, filtrado do seu jeito
+
+<img src="docs/screenshots/mes.png" width="230" align="right" alt="Lançamentos do mês">
+
+A lista do mês separa receitas, faturas de cartão, contas fixas, parcelas e avulsos.
+Dá para filtrar por **grupo de gasto** (os grupos saem das suas próprias categorias),
+por **status** (pago ou não pago) e ordenar por valor, vencimento ou número de parcelas.
+
+Marcar como pago é um toque na caixinha.
+
+<br clear="right">
+
+### Para onde o dinheiro foi
+
+<img src="docs/screenshots/categorias.png" width="230" align="right" alt="Gastos por categoria">
+
+Rosca de gastos por categoria com duas visões: tudo que passou no cartão agrupado como
+**"Cartão de crédito"**, ou os cartões **abertos**, com cada compra na sua categoria.
+Tocar numa fatia abre a lista já filtrada.
+
+Logo abaixo, a pizza de **pago × a pagar** mostra o quanto do mês já foi quitado.
+
+<br clear="right">
+
+### Ver o que vem pela frente
+
+<img src="docs/screenshots/tendencia.png" width="230" align="right" alt="Projeção de 12 meses">
+
+Barras de receitas contra despesas dos próximos meses e uma linha de projeção de até
+12 meses à frente, já contando as parcelas que vão vencer e os fixos mensais. O
+tracejado é o previsto.
+
+<br clear="right">
+
+### Tabela e avisos
+
+<img src="docs/screenshots/tabela.png" width="230" alt="Tabela analítica">
+<img src="docs/screenshots/avisos.png" width="230" alt="Central de avisos">
+<img src="docs/screenshots/proximos.png" width="230" alt="Próximos pagamentos">
+
+A **tabela** resume 6, 12 ou 24 meses em linhas de receita, despesa e sobra, com a
+variação mês a mês.
+
+A **central de avisos** agrupa tudo em aberto por urgência: vencidas, próximos 7 dias
+e mais adiante. Os lembretes chegam como notificação 1 dia, 3 dias e 1 semana antes do
+vencimento — um aviso curto, com o detalhe dentro do app, para o fim do ciclo não virar
+uma enxurrada de notificações.
+
+### Seu mês não precisa começar no dia 1º
+
+<img src="docs/screenshots/ciclo.png" width="230" align="right" alt="Ciclo do mês">
+
+Recebe no dia 5 e paga tudo até o dia 4 do mês seguinte? Configure o **ciclo próprio**
+e o app reagrupa os períodos.
+
+Nada é apagado ao mudar: os lançamentos mantêm as datas e só são reagrupados. Dá para
+voltar ao mês civil quando quiser.
+
+<br clear="right">
+
+---
+
+## Instalar
+
+1. Baixe o APK na [página de releases](https://github.com/Sasaquee/lumen/releases/latest).
+2. O Android vai pedir permissão para instalar de **fontes desconhecidas** — é esperado,
+   o app não está na Play Store.
+3. O Play Protect pode exibir um aviso, porque o APK é assinado com uma chave de
+   desenvolvimento. Toque em *Instalar mesmo assim*.
+
+Requer **Android 7.0 ou superior**.
+
+---
+
+## Privacidade
+
+O Lumen **não tem servidor**. Não há cadastro, login nem conta para criar, e o app não
+pede nenhuma permissão de rede para funcionar.
+
+Tudo fica num banco SQLite dentro do aparelho, na área privada do app. Nada é enviado
+para lugar nenhum — nem para o autor, nem para terceiros, nem para serviços de análise.
+
+Em **Mais → Exportar backup** você gera um arquivo `.json` e escolhe onde salvar; em
+**Apagar todos os dados**, zera tudo. Desinstalar o app também apaga o banco, então
+exporte antes se quiser guardar o histórico.
+
+---
+
+## Para desenvolvedores
 
 Expo SDK 57 (React Native 0.86, TypeScript) · expo-sqlite · expo-notifications · react-navigation · react-native-gifted-charts
 
-## Estrutura
+### Estrutura
 
 ```
 App.tsx                    navegação (abas + pilha) e carregamento de fontes
 src/data/db.ts             schema SQLite, CRUD, backup/restauração
 src/data/engine.ts         cálculo dos meses: recorrentes, parcelas, faturas de cartão, totais
 src/data/store.tsx         contexto global (ledger + mês selecionado)
+src/data/demo.ts           dados fictícios das capturas de tela (só na build de demonstração)
 src/components/            UI base, gráficos, linha de lançamento
 src/screens/               Início, Mês, Tabela, Mais, formulários, fatura, cartões, categorias, ciclo, planos, próximos pagamentos, central de avisos
 src/utils/dates.ts         mês civil e ciclo financeiro (início, fim, a que ciclo uma data pertence)
@@ -20,6 +209,30 @@ src/data/filters.ts        grupos de gastos e ordenações da aba Mês
 src/data/reminders.ts      avisos e central de avisos (lógica pura, testável)
 src/data/notifications.ts  permissão, canal e agendamento no Android
 ```
+
+### Rodar / gerar APK
+
+```bash
+npm install
+npx expo prebuild -p android
+cd android && ./gradlew assembleRelease
+adb install -r app/build/outputs/apk/release/app-release.apk
+```
+
+Para desenvolvimento com recarga ao vivo: `npx expo run:android` (build de debug + Metro).
+
+### Build de demonstração
+
+As capturas deste README vêm de uma build à parte, com dados fictícios, que instala ao
+lado do app de verdade sem tocar no banco dele:
+
+1. em `app.json`, adicione `"extra": { "demo": true }`;
+2. em `android/app/build.gradle`, troque o `applicationId` para `com.lumen.financas.demo`;
+3. em `android/app/src/main/res/values/strings.xml`, troque o `app_name` para `Lumen Demo`;
+4. gere o APK e instale.
+
+`src/data/demo.ts` popula o banco na primeira abertura — e **só** quando `extra.demo`
+está ligado e o banco está vazio. Desfaça os três passos antes de gerar a build normal.
 
 ### Regras de negócio
 
@@ -43,13 +256,3 @@ src/data/notifications.ts  permissão, canal e agendamento no Android
 - **A aba Mês nunca lista gasto de cartão item a item**: cada fatura aparece como uma linha (`Ledger.invoiceItem`), e o detalhe fica na tela da fatura. Por isso `Ledger.listItems` (o que a lista mostra) é diferente de `Ledger.expenseItems` (tudo, usado nos gráficos).
 - O teto de `MAX_SCHEDULED` existe porque o Android limita alarmes pendentes; ficam os vencimentos mais próximos.
 
-## Rodar / gerar APK
-
-```bash
-npm install
-npx expo prebuild -p android
-cd android && ./gradlew assembleRelease
-adb install -r app/build/outputs/apk/release/app-release.apk
-```
-
-Para desenvolvimento com recarga ao vivo: `npx expo run:android` (build de debug + Metro).

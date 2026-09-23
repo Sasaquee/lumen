@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { loadAll, migrate } from './db';
+import { maybeSeedDemo } from './demo';
 import { Ledger } from './engine';
 import { syncReminders } from './notifications';
 
@@ -17,7 +18,7 @@ let migrated = false;
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
   const [ledger, setLedger] = useState(() => {
-    if (!migrated) { migrate(); migrated = true; }
+    if (!migrated) { migrate(); maybeSeedDemo(); migrated = true; }
     return new Ledger(loadAll());
   });
   const [month, setMonth] = useState(() => ledger.currentCycle());
