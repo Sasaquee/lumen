@@ -20,6 +20,8 @@
     --line:rgba(255,255,255,.08); --text:#F2F5F7; --text2:#A3B0BD; --muted:#6E7B89;
     --primary:#3BE08F; --primary-dark:#16A865; --primary-soft:rgba(59,224,143,.14);
     --warning:#F5B544; --expense:#F0875A; --violet:#9085E9; --blue:#3987E5;
+    /* ícone tom sobre tom: a cor do app rebaixada até quase o fundo */
+    --icon:rgba(59,224,143,.58); --icon-bg:rgba(59,224,143,.07);
     --r-sm:10px; --r-md:14px; --r-lg:20px; --r-xl:28px;
     --wrap:1160px;
   }
@@ -32,6 +34,7 @@
   }
   a{color:inherit;text-decoration:none}
   img{display:block;max-width:100%}
+  .i{display:block;flex:none}
   .wrap{width:100%;max-width:var(--wrap);margin:0 auto;padding:0 24px}
 
   /* ---------- glow de fundo ---------- */
@@ -89,7 +92,8 @@
   .lead{font-size:clamp(16px,2vw,18.5px);color:var(--text2);max-width:540px;margin-bottom:30px}
   .cta{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:26px}
   .meta{display:flex;gap:22px;flex-wrap:wrap;color:var(--muted);font-size:13.5px}
-  .meta span{display:flex;align-items:center;gap:7px}
+  .meta span{display:flex;align-items:center;gap:8px}
+  .meta .i{color:var(--icon)}
 
   /* ---------- moldura do celular ---------- */
   .phone{
@@ -139,10 +143,11 @@
   .feat:hover{background:var(--surface)}
   .feat[aria-selected="true"]{background:var(--surface);border-color:rgba(59,224,143,.3)}
   .feat-ico{
-    flex:none;width:40px;height:40px;border-radius:12px;display:grid;place-items:center;
-    background:var(--surface2);font-size:19px;transition:background .2s
+    flex:none;width:42px;height:42px;border-radius:13px;display:grid;place-items:center;
+    background:var(--icon-bg);color:var(--icon);
+    transition:background .2s,color .2s
   }
-  .feat[aria-selected="true"] .feat-ico{background:var(--primary-soft)}
+  .feat[aria-selected="true"] .feat-ico{background:var(--primary-soft);color:var(--primary)}
   .feat h3{font-size:16.5px;font-weight:600;margin-bottom:3px;letter-spacing:-.2px}
   .feat p{font-size:14px;color:var(--text2);line-height:1.55}
   .feat[aria-selected="true"] h3{color:var(--primary)}
@@ -157,13 +162,31 @@
     transition:transform .25s,border-color .25s
   }
   .card:hover{transform:translateY(-4px);border-color:rgba(59,224,143,.26)}
-  .card .ico{font-size:24px;margin-bottom:14px;display:block}
+  .card .ico{
+    width:46px;height:46px;border-radius:14px;margin-bottom:16px;
+    display:grid;place-items:center;background:var(--icon-bg);color:var(--icon);
+    transition:background .25s,color .25s
+  }
+  .card:hover .ico{background:var(--primary-soft);color:var(--primary)}
   .card h3{font-size:17px;font-weight:600;margin-bottom:7px}
   .card p{color:var(--text2);font-size:14.5px}
 
   /* ---------- galeria ---------- */
+  .gal-wrap{position:relative}
   .gallery{display:flex;gap:18px;overflow-x:auto;padding:36px 24px 30px;scroll-snap-type:x mandatory;
-    margin:0 calc(50% - 50vw);scrollbar-width:none}
+    margin:0 calc(50% - 50vw);scrollbar-width:none;cursor:grab}
+  .gallery.dragging{cursor:grabbing;scroll-snap-type:none}
+  .gallery.dragging .shot{pointer-events:none}
+  .gal-btn{
+    position:absolute;top:calc(50% - 14px);transform:translateY(-50%);z-index:5;
+    width:48px;height:48px;border-radius:50%;display:grid;place-items:center;cursor:pointer;
+    background:var(--surface2);border:1px solid var(--line);color:var(--text);
+    box-shadow:0 8px 24px rgba(0,0,0,.45);transition:background .2s,opacity .2s,transform .2s
+  }
+  .gal-btn:hover{background:var(--surface3);transform:translateY(-50%) scale(1.06)}
+  .gal-btn[disabled]{opacity:0;pointer-events:none}
+  .gal-prev{left:max(16px,calc(50% - var(--wrap)/2 + 8px))}
+  .gal-next{right:max(16px,calc(50% - var(--wrap)/2 + 8px))}
   .gallery::-webkit-scrollbar{display:none}
   .gallery::before,.gallery::after{content:"";flex:none;width:max(0px,calc(50vw - var(--wrap)/2))}
   .shot{
@@ -183,10 +206,11 @@
   .lb.on{opacity:1;pointer-events:auto}
   .lb img{max-height:86vh;border-radius:26px;box-shadow:0 30px 80px rgba(0,0,0,.7)}
   .lb-close{position:absolute;top:22px;right:24px;background:var(--surface2);border:1px solid var(--line);
-    color:var(--text);width:42px;height:42px;border-radius:50%;font-size:20px;cursor:pointer}
+    color:var(--text);width:42px;height:42px;border-radius:50%;cursor:pointer;display:grid;place-items:center}
   .lb-nav{position:absolute;top:50%;transform:translateY(-50%);background:var(--surface2);
     border:1px solid var(--line);color:var(--text);width:46px;height:46px;border-radius:50%;
-    font-size:20px;cursor:pointer;display:grid;place-items:center}
+    cursor:pointer;display:grid;place-items:center;transition:background .2s}
+  .lb-nav:hover{background:var(--surface3)}
   .lb-prev{left:20px} .lb-next{right:20px}
 
   /* ---------- privacidade ---------- */
@@ -195,7 +219,7 @@
   .privacy li{display:flex;gap:13px;align-items:flex-start;font-size:15px;color:var(--text2)}
   .privacy li b{display:block;color:var(--text);font-weight:600;margin-bottom:3px}
   .check{flex:none;width:24px;height:24px;border-radius:50%;background:var(--primary-soft);color:var(--primary);
-    display:grid;place-items:center;font-size:13px;font-weight:700;margin-top:1px}
+    display:grid;place-items:center;margin-top:1px}
 
   /* ---------- instalar ---------- */
   .steps{counter-reset:s;display:grid;gap:16px;margin-top:34px}
@@ -250,13 +274,13 @@
         fecha semana que vem — e mostra a sobra prevista.
       </p>
       <div class="cta">
-        <a class="btn btn-primary" href="https://github.com/Sasaquee/lumen/releases/latest">⬇ Baixar o APK</a>
+        <a class="btn btn-primary" href="https://github.com/Sasaquee/lumen/releases/latest"><svg class="i" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 12H4V17H20V12H22V17C22 18.11 21.11 19 20 19H4C2.9 19 2 18.11 2 17V12M12 15L17.55 9.54L16.13 8.13L13 11.25V2H11V11.25L7.88 8.13L6.46 9.55L12 15Z"/></svg> Baixar o APK</a>
         <a class="btn btn-ghost" href="#recursos">Ver como funciona</a>
       </div>
       <div class="meta">
-        <span>🔒 Dados só no aparelho</span>
-        <span>📡 Funciona offline</span>
-        <span>🆓 Código aberto (MIT)</span>
+        <span><svg class="i" viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M21,11C21,16.55 17.16,21.74 12,23C6.84,21.74 3,16.55 3,11V5L12,1L21,5V11M12,21C15.75,20 19,15.54 19,11.22V6.3L12,3.18L5,6.3V11.22C5,15.54 8.25,20 12,21M14.8,11V9.5C14.8,8.1 13.4,7 12,7C10.6,7 9.2,8.1 9.2,9.5V11C8.6,11 8,11.6 8,12.2V15.7C8,16.4 8.6,17 9.2,17H14.7C15.4,17 16,16.4 16,15.8V12.3C16,11.6 15.4,11 14.8,11M13.5,11H10.5V9.5C10.5,8.7 11.2,8.2 12,8.2C12.8,8.2 13.5,8.7 13.5,9.5V11Z"/></svg> Dados só no aparelho</span>
+        <span><svg class="i" viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M2.28,3L1,4.27L2.47,5.74C2.04,6 1.61,6.29 1.2,6.6L3,9C3.53,8.6 4.08,8.25 4.66,7.93L6.89,10.16C6.15,10.5 5.44,10.91 4.8,11.4L6.6,13.8C7.38,13.22 8.26,12.77 9.2,12.47L11.75,15C10.5,15.07 9.34,15.5 8.4,16.2L12,21L14.46,17.73L17.74,21L19,19.72M12,3C9.85,3 7.8,3.38 5.9,4.07L8.29,6.47C9.5,6.16 10.72,6 12,6C15.38,6 18.5,7.11 21,9L22.8,6.6C19.79,4.34 16.06,3 12,3M12,9C11.62,9 11.25,9 10.88,9.05L14.07,12.25C15.29,12.53 16.43,13.07 17.4,13.8L19.2,11.4C17.2,9.89 14.7,9 12,9Z"/></svg> Funciona offline</span>
+        <span><svg class="i" viewBox="0 0 24 24" width="17" height="17" fill="currentColor" aria-hidden="true"><path d="M14.6,16.6L19.2,12L14.6,7.4L16,6L22,12L16,18L14.6,16.6M9.4,16.6L4.8,12L9.4,7.4L8,6L2,12L8,18L9.4,16.6Z"/></svg> Código aberto (MIT)</span>
       </div>
     </div>
     <div class="phone">
@@ -293,7 +317,11 @@
     <h2>O app inteiro, de relance</h2>
     <p class="sub">Arraste para o lado. Clique numa tela para ampliar.</p>
   </div>
-  <div class="gallery" id="gal"></div>
+  <div class="gal-wrap">
+    <button class="gal-btn gal-prev" id="galP" aria-label="Telas anteriores"><svg class="i" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z"/></svg></button>
+    <div class="gallery" id="gal"></div>
+    <button class="gal-btn gal-next" id="galN" aria-label="Próximas telas"><svg class="i" viewBox="0 0 24 24" width="26" height="26" fill="currentColor" aria-hidden="true"><path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"/></svg></button>
+  </div>
 </section>
 
 <section id="porque">
@@ -304,17 +332,17 @@
     </div>
     <div class="cards reveal">
       <div class="card">
-        <span class="ico">🧾</span>
+        <span class="ico"><svg class="i" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M19.5 3.5L18 2L16.5 3.5L15 2L13.5 3.5L12 2L10.5 3.5L9 2L7.5 3.5L6 2L4.5 3.5L3 2V22L4.5 20.5L6 22L7.5 20.5L9 22L10.5 20.5L12 22L13.5 20.5L15 22L16.5 20.5L18 22L19.5 20.5L21 22V2L19.5 3.5M19 19H5V5H19V19M6 15H18V17H6M6 11H18V13H6M6 7H18V9H6V7Z"/></svg></span>
         <h3>Você não lembra tudo que gastou no cartão</h3>
         <p>Informe só o <b>total da fatura</b> e detalhe o que lembrar. A diferença vira "gasto não detalhado" em vez de sumir da conta.</p>
       </div>
       <div class="card">
-        <span class="ico">📅</span>
+        <span class="ico"><svg class="i" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M6 1V3H5C3.89 3 3 3.89 3 5V19C3 20.1 3.89 21 5 21H11.1C12.36 22.24 14.09 23 16 23C19.87 23 23 19.87 23 16C23 14.09 22.24 12.36 21 11.1V5C21 3.9 20.11 3 19 3H18V1H16V3H8V1M5 5H19V7H5M5 9H19V9.67C18.09 9.24 17.07 9 16 9C12.13 9 9 12.13 9 16C9 17.07 9.24 18.09 9.67 19H5M16 11.15C18.68 11.15 20.85 13.32 20.85 16C20.85 18.68 18.68 20.85 16 20.85C13.32 20.85 11.15 18.68 11.15 16C11.15 13.32 13.32 11.15 16 11.15M15 13V16.69L18.19 18.53L18.94 17.23L16.5 15.82V13Z"/></svg></span>
         <h3>A assinatura ainda não foi cobrada</h3>
         <p>O banco só lança no dia. O Lumen mostra <b>já cobrado</b> e <b>projeção</b> lado a lado — e quanto você economiza cancelando antes.</p>
       </div>
       <div class="card">
-        <span class="ico">💳</span>
+        <span class="ico"><svg class="i" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z"/></svg></span>
         <h3>O limite do banco engana</h3>
         <p>O cálculo soma as faturas em aberto deste mês em diante, com as parcelas que ainda vão cair. Menor, e mais honesto.</p>
       </div>
@@ -329,10 +357,10 @@
       <h2>Seu dinheiro não é da conta de ninguém</h2>
       <p class="sub">O Lumen não tem servidor. Não há cadastro, login nem conta para criar.</p>
       <ul>
-        <li><span class="check">✓</span><span><b>Nada sai do aparelho</b>Tudo fica num banco SQLite na área privada do app.</span></li>
-        <li><span class="check">✓</span><span><b>Sem rastreio</b>Nenhum serviço de análise, anúncio ou telemetria.</span></li>
-        <li><span class="check">✓</span><span><b>Backup é seu</b>Exporte um .json e escolha onde guardar.</span></li>
-        <li><span class="check">✓</span><span><b>Código aberto</b>Dá para ler cada linha antes de instalar.</span></li>
+        <li><span class="check"><svg class="i" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg></span><span><b>Nada sai do aparelho</b>Tudo fica num banco SQLite na área privada do app.</span></li>
+        <li><span class="check"><svg class="i" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg></span><span><b>Sem rastreio</b>Nenhum serviço de análise, anúncio ou telemetria.</span></li>
+        <li><span class="check"><svg class="i" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg></span><span><b>Backup é seu</b>Exporte um .json e escolha onde guardar.</span></li>
+        <li><span class="check"><svg class="i" viewBox="0 0 24 24" width="15" height="15" fill="currentColor" aria-hidden="true"><path d="M21,7L9,19L3.5,13.5L4.91,12.09L9,16.17L19.59,5.59L21,7Z"/></svg></span><span><b>Código aberto</b>Dá para ler cada linha antes de instalar.</span></li>
       </ul>
     </div>
   </div>
@@ -352,7 +380,7 @@
     </div>
     <p class="note">As capturas desta página vêm de uma build de demonstração com dados fictícios.</p>
     <div class="cta" style="margin-top:28px">
-      <a class="btn btn-primary" href="https://github.com/Sasaquee/lumen/releases/latest">⬇ Baixar o APK</a>
+      <a class="btn btn-primary" href="https://github.com/Sasaquee/lumen/releases/latest"><svg class="i" viewBox="0 0 24 24" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M2 12H4V17H20V12H22V17C22 18.11 21.11 19 20 19H4C2.9 19 2 18.11 2 17V12M12 15L17.55 9.54L16.13 8.13L13 11.25V2H11V11.25L7.88 8.13L6.46 9.55L12 15Z"/></svg> Baixar o APK</a>
       <a class="btn btn-ghost" href="https://github.com/Sasaquee/lumen">Ver o código</a>
     </div>
   </div>
@@ -370,26 +398,30 @@
 </footer>
 
 <div class="lb" id="lb">
-  <button class="lb-close" id="lbX" aria-label="Fechar">✕</button>
-  <button class="lb-nav lb-prev" id="lbP" aria-label="Anterior">‹</button>
+  <button class="lb-close" id="lbX" aria-label="Fechar"><svg class="i" viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z"/></svg></button>
+  <button class="lb-nav lb-prev" id="lbP" aria-label="Anterior"><svg class="i" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z"/></svg></button>
   <img id="lbImg" src="" alt="">
-  <button class="lb-nav lb-next" id="lbN" aria-label="Próxima">›</button>
+  <button class="lb-nav lb-next" id="lbN" aria-label="Próxima"><svg class="i" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z"/></svg></button>
 </div>
 
 <script>
+/* Material Community Icons — os mesmos do app */
+const ICONS = {"wallet-outline":"M5,3C3.89,3 3,3.9 3,5V19A2,2 0 0,0 5,21H19A2,2 0 0,0 21,19V16.72C21.59,16.37 22,15.74 22,15V9C22,8.26 21.59,7.63 21,7.28V5A2,2 0 0,0 19,3H5M5,5H19V7H13A2,2 0 0,0 11,9V15A2,2 0 0,0 13,17H19V19H5V5M13,9H20V15H13V9M16,10.5A1.5,1.5 0 0,0 14.5,12A1.5,1.5 0 0,0 16,13.5A1.5,1.5 0 0,0 17.5,12A1.5,1.5 0 0,0 16,10.5Z","lightning-bolt-outline":"M11 9.47V11H14.76L13 14.53V13H9.24L11 9.47M13 1L6 15H11V23L18 9H13V1Z","receipt-text-outline":"M19.5 3.5L18 2L16.5 3.5L15 2L13.5 3.5L12 2L10.5 3.5L9 2L7.5 3.5L6 2L4.5 3.5L3 2V22L4.5 20.5L6 22L7.5 20.5L9 22L10.5 20.5L12 22L13.5 20.5L15 22L16.5 20.5L18 22L19.5 20.5L21 22V2L19.5 3.5M19 19H5V5H19V19M6 15H18V17H6M6 11H18V13H6M6 7H18V9H6V7Z","trending-up":"M16,6L18.29,8.29L13.41,13.17L9.41,9.17L2,16.59L3.41,18L9.41,12L13.41,16L19.71,9.71L22,12V6H16Z","credit-card-outline":"M20,8H4V6H20M20,18H4V12H20M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C22,4.89 21.1,4 20,4Z","filter-variant":"M6,13H18V11H6M3,6V8H21V6M10,18H14V16H10V18Z","chart-donut":"M13,2.05V5.08C16.39,5.57 19,8.47 19,12C19,12.9 18.82,13.75 18.5,14.54L21.12,16.07C21.68,14.83 22,13.45 22,12C22,6.82 18.05,2.55 13,2.05M12,19A7,7 0 0,1 5,12C5,8.47 7.61,5.57 11,5.08V2.05C5.94,2.55 2,6.81 2,12A10,10 0 0,0 12,22C15.3,22 18.23,20.39 20.05,17.91L17.45,16.38C16.17,18 14.21,19 12,19Z","chart-line":"M16,11.78L20.24,4.45L21.97,5.45L16.74,14.5L10.23,10.75L5.46,19H22V21H2V3H4V17.54L9.5,8L16,11.78Z","table":"M5,4H19A2,2 0 0,1 21,6V18A2,2 0 0,1 19,20H5A2,2 0 0,1 3,18V6A2,2 0 0,1 5,4M5,8V12H11V8H5M13,8V12H19V8H13M5,14V18H11V14H5M13,14V18H19V14H13Z","bell-outline":"M10 21H14C14 22.1 13.1 23 12 23S10 22.1 10 21M21 19V20H3V19L5 17V11C5 7.9 7 5.2 10 4.3V4C10 2.9 10.9 2 12 2S14 2.9 14 4V4.3C17 5.2 19 7.9 19 11V17L21 19M17 11C17 8.2 14.8 6 12 6S7 8.2 7 11V18H17V11Z","clock-outline":"M12,20A8,8 0 0,0 20,12A8,8 0 0,0 12,4A8,8 0 0,0 4,12A8,8 0 0,0 12,20M12,2A10,10 0 0,1 22,12A10,10 0 0,1 12,22C6.47,22 2,17.5 2,12A10,10 0 0,1 12,2M12.5,7V12.25L17,14.92L16.25,16.15L11,13V7H12.5Z","calendar-sync-outline":"M18,11V12.5C21.19,12.5 23.09,16.05 21.33,18.71L20.24,17.62C21.06,15.96 19.85,14 18,14V15.5L15.75,13.25L18,11M18,22V20.5C14.81,20.5 12.91,16.95 14.67,14.29L15.76,15.38C14.94,17.04 16.15,19 18,19V17.5L20.25,19.75L18,22M19,3H18V1H16V3H8V1H6V3H5A2,2 0 0,0 3,5V19A2,2 0 0,0 5,21H14C13.36,20.45 12.86,19.77 12.5,19H5V9H19V10.59C19.71,10.7 20.39,10.94 21,11.31V5A2,2 0 0,0 19,3M19,7H5V5H19"};
+const svgIcon = n => '<svg class="i" viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="' + ICONS[n] + '"/></svg>';
+
 const FEATS = [
-  ['inicio','🏠','Sobra prevista','Receitas menos tudo que ainda vai sair, com o quanto da renda já está comprometida e quanto sobra por dia.'],
-  ['lancamento','⚡','Lançar em segundos','Avulso, parcelado ou fixo mensal. No parcelado, informe o total ou o valor da parcela — o app converte um no outro.'],
-  ['fatura','🧾','Fatura do cartão','Informe o total e detalhe só o que lembrar. O resto vira "gasto não detalhado" e continua contando no mês.'],
-  ['projecao','🔮','Já cobrado × projeção','O banco só lança a assinatura no dia da cobrança. Veja os dois valores e o que ainda falta cobrar.'],
-  ['cartoes','💳','Limite de verdade','Limite restante e porcentagem usada, somando as faturas em aberto deste mês em diante.'],
-  ['mes','📋','O mês filtrado','Filtre por grupo de gasto e por status, ordene por valor, vencimento ou número de parcelas.'],
-  ['categorias','🍩','Para onde o dinheiro foi','Rosca por categoria, com o cartão agrupado ou aberto, e a pizza de pago × a pagar.'],
-  ['tendencia','📈','12 meses à frente','Barras de receita contra despesa e a linha de projeção, já contando parcelas e fixos.'],
-  ['tabela','📊','Tabela analítica','6, 12 ou 24 meses em linhas de receita, despesa e sobra, com a variação mês a mês.'],
-  ['avisos','🔔','Central de avisos','Tudo em aberto agrupado por urgência: vencidas, próximos 7 dias e mais adiante.'],
-  ['proximos','⏰','Próximos pagamentos','O que vence a seguir no período, com as contas atrasadas destacadas.'],
-  ['ciclo','🗓️','Seu mês, seu ciclo','Recebe dia 5 e paga até o dia 4? Ajuste o início do mês financeiro sem mexer em nenhum lançamento.'],
+  ['inicio','wallet-outline','Sobra prevista','Receitas menos tudo que ainda vai sair, com o quanto da renda já está comprometida e quanto sobra por dia.'],
+  ['lancamento','lightning-bolt-outline','Lançar em segundos','Avulso, parcelado ou fixo mensal. No parcelado, informe o total ou o valor da parcela — o app converte um no outro.'],
+  ['fatura','receipt-text-outline','Fatura do cartão','Informe o total e detalhe só o que lembrar. O resto vira "gasto não detalhado" e continua contando no mês.'],
+  ['projecao','trending-up','Já cobrado × projeção','O banco só lança a assinatura no dia da cobrança. Veja os dois valores e o que ainda falta cobrar.'],
+  ['cartoes','credit-card-outline','Limite de verdade','Limite restante e porcentagem usada, somando as faturas em aberto deste mês em diante.'],
+  ['mes','filter-variant','O mês filtrado','Filtre por grupo de gasto e por status, ordene por valor, vencimento ou número de parcelas.'],
+  ['categorias','chart-donut','Para onde o dinheiro foi','Rosca por categoria, com o cartão agrupado ou aberto, e a pizza de pago × a pagar.'],
+  ['tendencia','chart-line','12 meses à frente','Barras de receita contra despesa e a linha de projeção, já contando parcelas e fixos.'],
+  ['tabela','table','Tabela analítica','6, 12 ou 24 meses em linhas de receita, despesa e sobra, com a variação mês a mês.'],
+  ['avisos','bell-outline','Central de avisos','Tudo em aberto agrupado por urgência: vencidas, próximos 7 dias e mais adiante.'],
+  ['proximos','clock-outline','Próximos pagamentos','O que vence a seguir no período, com as contas atrasadas destacadas.'],
+  ['ciclo','calendar-sync-outline','Seu mês, seu ciclo','Recebe dia 5 e paga até o dia 4? Ajuste o início do mês financeiro sem mexer em nenhum lançamento.'],
 ];
 
 /* ---------- explorador ---------- */
@@ -410,7 +442,7 @@ FEATS.forEach(([slug, ico, title, desc], i) => {
   b.className = 'feat';
   b.setAttribute('role', 'tab');
   b.setAttribute('aria-selected', i === 0);
-  b.innerHTML = '<span class="feat-ico">' + ico + '</span><span><h3>' + title + '</h3><p>' + desc + '</p></span>';
+  b.innerHTML = '<span class="feat-ico">' + svgIcon(ico) + '</span><span><h3>' + title + '</h3><p>' + desc + '</p></span>';
   b.addEventListener('click', () => { stop(); show(i); });
   list.appendChild(b);
 });
@@ -463,9 +495,45 @@ FEATS.forEach(([slug,, title]) => {
   const a = document.createElement('figure');
   a.className = 'shot';
   a.innerHTML = '<img src="screenshots/' + slug + '.png" alt="' + title + '" loading="lazy"><span>' + title + '</span>';
-  a.addEventListener('click', () => openLb(slug, title));
+  a.addEventListener('click', () => { if (moved < 6) openLb(slug, title); });
   gal.appendChild(a);
 });
+
+// setas: rolam a tira em blocos; arrastar com o mouse também funciona
+const galP = document.getElementById('galP'), galN = document.getElementById('galN');
+const step = () => {
+  const card = gal.querySelector('.shot');
+  return card ? card.offsetWidth + 18 : 228;
+};
+function galState(){
+  const max = gal.scrollWidth - gal.clientWidth;
+  galP.disabled = gal.scrollLeft < 8;
+  galN.disabled = gal.scrollLeft > max - 8;
+}
+// o evento de scroll cobre o caso normal; os timers garantem o estado ao fim da animacao
+const nudge = d => { gal.scrollBy({ left: d, behavior: 'smooth' }); setTimeout(galState, 360); setTimeout(galState, 760); };
+galP.addEventListener('click', () => nudge(-step() * 2));
+galN.addEventListener('click', () => nudge( step() * 2));
+gal.addEventListener('scroll', galState, { passive: true });
+addEventListener('resize', galState);
+galState();
+
+let down = false, startX = 0, startL = 0, moved = 0;
+gal.addEventListener('pointerdown', e => {
+  if (e.pointerType === 'touch') return;   // o toque já rola nativamente
+  down = true; moved = 0; startX = e.clientX; startL = gal.scrollLeft;
+  gal.setPointerCapture(e.pointerId);
+});
+gal.addEventListener('pointermove', e => {
+  if (!down) return;
+  const d = e.clientX - startX;
+  if (Math.abs(d) > 4) gal.classList.add('dragging');
+  moved = Math.max(moved, Math.abs(d));
+  gal.scrollLeft = startL - d;
+});
+const endDrag = () => { down = false; gal.classList.remove('dragging'); galState(); };
+gal.addEventListener('pointerup', endDrag);
+gal.addEventListener('pointercancel', endDrag);
 
 const lb = document.getElementById('lb'), lbImg = document.getElementById('lbImg');
 let lbI = 0;
