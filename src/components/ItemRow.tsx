@@ -10,14 +10,15 @@ import { addMonths, formatDate, monthLabel, monthOf } from '../utils/dates';
 import { formatMoney } from '../utils/money';
 import { METHOD_LABELS } from '../data/types';
 
-export function itemSubtitle(item: Item, categoryName?: string) {
+export function itemSubtitle(item: Item, categoryName?: string, walletName?: string) {
   const parts: string[] = [];
   if (categoryName) parts.push(categoryName);
   parts.push(formatDate(item.date));
   if (item.installment) parts.push(`${item.installment.index}/${item.installment.total}`);
   if (item.source === 'recurring') parts.push('Fixo');
   const showMethod = item.cardId == null && item.method !== 'pix' && (item.kind === 'expense' || item.method === 'vr');
-  if (showMethod) parts.push(METHOD_LABELS[item.method]);
+  // num vale, o nome da carteira diz mais que a palavra 'Vale'
+  if (showMethod) parts.push(item.method === 'vr' ? (walletName ?? METHOD_LABELS.vr) : METHOD_LABELS[item.method]);
   return parts.join(' · ');
 }
 
@@ -92,7 +93,7 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
         icon={isInvoice ? 'credit-card-outline' : cat?.icon}
         iconColor={isInvoice ? invoice?.card.color : cat?.color}
         title={item.description}
-        subtitle={isInvoice ? invoiceSubtitle(invoice) : itemSubtitle(item, cat?.name)}
+        subtitle={isInvoice ? invoiceSubtitle(invoice) : itemSubtitle(item, cat?.name, ledger.wallet(item.walletId)?.name)}
         onPress={() => (isInvoice ? openInvoice() : setMenu(true))}
         right={
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>

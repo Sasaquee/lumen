@@ -1,10 +1,10 @@
 import * as SQLite from 'expo-sqlite';
-import type { Card, Category, Entry, InvoiceTotal, Paid, Recurring, RecurringOverride, Setting } from './types';
+import type { Card, Category, Entry, InvoiceTotal, Paid, Recurring, RecurringOverride, Setting, Wallet } from './types';
 import { palette } from '../theme';
 
 export const db = SQLite.openDatabaseSync('lumen.db');
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 export function migrate() {
   db.execSync('PRAGMA journal_mode = WAL; PRAGMA foreign_keys = ON;');
@@ -74,6 +74,13 @@ export function migrate() {
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS wallets (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        color TEXT NOT NULL,
+        icon TEXT NOT NULL,
+        archived INTEGER NOT NULL DEFAULT 0
+      );
       CREATE TABLE IF NOT EXISTS invoice_totals (
         card_id INTEGER NOT NULL,
         month TEXT NOT NULL,
@@ -84,8 +91,29 @@ export function migrate() {
     `);
     if (version === 0) seedCategories();
     addColumnIfMissing('entries', 'invoice_month', 'TEXT');
+    addColumnIfMissing('entries', 'wallet_id', 'INTEGER');
+    addColumnIfMissing('recurrings', 'wallet_id', 'INTEGER');
+    adoptOrphanWalletRows();
     db.execSync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });
+}
+
+/**
+ * Antes dos vales serem cadastráveis existia um único "vale refeição" implícito.
+ * Se sobrou algum lançamento assim, cria a carteira e adota os órfãos — ninguém
+ * perde lançamento por causa da migração.
+ */
+function adoptOrphanWalletRows() {
+  const orphans =
+    (db.getFirstSync<{ n: number }>("SELECT COUNT(*) n FROM entries WHERE method = 'vr' AND wallet_id IS NULL")?.n ?? 0) +
+    (db.getFirstSync<{ n: number }>("SELECT COUNT(*) n FROM recurrings WHERE method = 'vr' AND wallet_id IS NULL")?.n ?? 0);
+  if (orphans === 0) return;
+  const id = db.runSync(
+    'INSERT INTO wallets (name, color, icon) VALUES (?, ?, ?)',
+    'Vale refeição', '#2FA84F', 'silverware-fork-knife',
+  ).lastInsertRowId;
+  db.runSync("UPDATE entries SET wallet_id = ? WHERE method = 'vr' AND wallet_id IS NULL", id);
+  db.runSync("UPDATE recurrings SET wallet_id = ? WHERE method = 'vr' AND wallet_id IS NULL", id);
 }
 
 /** Migração aditiva: só cria a coluna quando ela ainda não existe. */
@@ -126,6 +154,7 @@ function seedCategories() {
 export interface Snapshot {
   categories: Category[];
   cards: Card[];
+  wallets: Wallet[];
   entries: Entry[];
   recurrings: Recurring[];
   overrides: RecurringOverride[];
@@ -138,6 +167,7 @@ export function loadAll(): Snapshot {
   return {
     categories: db.getAllSync<Category>('SELECT * FROM categories ORDER BY kind, name'),
     cards: db.getAllSync<Card>('SELECT * FROM cards ORDER BY name'),
+    wallets: db.getAllSync<Wallet>('SELECT * FROM wallets ORDER BY name'),
     entries: db.getAllSync<Entry>('SELECT * FROM entries ORDER BY date DESC, id DESC'),
     recurrings: db.getAllSync<Recurring>('SELECT * FROM recurrings ORDER BY day, description'),
     overrides: db.getAllSync<RecurringOverride>('SELECT * FROM recurring_overrides'),
@@ -175,6 +205,24 @@ export function saveCard(c: Omit<Card, 'id' | 'archived'> & { id?: number }) {
   return db.runSync('INSERT INTO cards (name, color, closing_day, due_day, limit_cents) VALUES (?, ?, ?, ?, ?)', c.name, c.color, c.closing_day, c.due_day, c.limit_cents).lastInsertRowId;
 }
 
+// ---------- Vales (benefícios) ----------
+export function saveWallet(w: Omit<Wallet, 'id' | 'archived'> & { id?: number }) {
+  if (w.id) {
+    db.runSync('UPDATE wallets SET name=?, color=?, icon=? WHERE id=?', w.name, w.color, w.icon, w.id);
+    return w.id;
+  }
+  return db.runSync('INSERT INTO wallets (name, color, icon) VALUES (?, ?, ?)', w.name, w.color, w.icon).lastInsertRowId;
+}
+
+/** Some de vez só quando não tem lançamento; com histórico, vira arquivado. */
+export function deleteWallet(id: number) {
+  const used =
+    (db.getFirstSync<{ n: number }>('SELECT COUNT(*) n FROM entries WHERE wallet_id=?', id)?.n ?? 0) +
+    (db.getFirstSync<{ n: number }>('SELECT COUNT(*) n FROM recurrings WHERE wallet_id=?', id)?.n ?? 0);
+  if (used > 0) db.runSync('UPDATE wallets SET archived=1 WHERE id=?', id);
+  else db.runSync('DELETE FROM wallets WHERE id=?', id);
+}
+
 export function deleteCard(id: number) {
   const used =
     (db.getFirstSync<{ n: number }>('SELECT COUNT(*) n FROM entries WHERE card_id=?', id)?.n ?? 0) +
@@ -202,14 +250,14 @@ export type EntryInput = Omit<Entry, 'id' | 'created_at'> & { id?: number };
 export function saveEntry(e: EntryInput) {
   if (e.id) {
     db.runSync(
-      'UPDATE entries SET kind=?, description=?, amount_cents=?, category_id=?, date=?, method=?, card_id=?, installments=?, notes=?, invoice_month=? WHERE id=?',
-      e.kind, e.description, e.amount_cents, e.category_id, e.date, e.method, e.card_id, e.installments, e.notes, e.invoice_month ?? null, e.id,
+      'UPDATE entries SET kind=?, description=?, amount_cents=?, category_id=?, date=?, method=?, card_id=?, wallet_id=?, installments=?, notes=?, invoice_month=? WHERE id=?',
+      e.kind, e.description, e.amount_cents, e.category_id, e.date, e.method, e.card_id, e.wallet_id ?? null, e.installments, e.notes, e.invoice_month ?? null, e.id,
     );
     return e.id;
   }
   return db.runSync(
-    'INSERT INTO entries (kind, description, amount_cents, category_id, date, method, card_id, installments, notes, created_at, invoice_month) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    e.kind, e.description, e.amount_cents, e.category_id, e.date, e.method, e.card_id, e.installments, e.notes, nowIso(), e.invoice_month ?? null,
+    'INSERT INTO entries (kind, description, amount_cents, category_id, date, method, card_id, wallet_id, installments, notes, created_at, invoice_month) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    e.kind, e.description, e.amount_cents, e.category_id, e.date, e.method, e.card_id, e.wallet_id ?? null, e.installments, e.notes, nowIso(), e.invoice_month ?? null,
   ).lastInsertRowId;
 }
 
@@ -226,14 +274,14 @@ export type RecurringInput = Omit<Recurring, 'id' | 'created_at'> & { id?: numbe
 export function saveRecurring(r: RecurringInput) {
   if (r.id) {
     db.runSync(
-      'UPDATE recurrings SET kind=?, description=?, amount_cents=?, category_id=?, day=?, method=?, card_id=?, start_month=?, end_month=?, notes=? WHERE id=?',
-      r.kind, r.description, r.amount_cents, r.category_id, r.day, r.method, r.card_id, r.start_month, r.end_month, r.notes, r.id,
+      'UPDATE recurrings SET kind=?, description=?, amount_cents=?, category_id=?, day=?, method=?, card_id=?, wallet_id=?, start_month=?, end_month=?, notes=? WHERE id=?',
+      r.kind, r.description, r.amount_cents, r.category_id, r.day, r.method, r.card_id, r.wallet_id ?? null, r.start_month, r.end_month, r.notes, r.id,
     );
     return r.id;
   }
   return db.runSync(
-    'INSERT INTO recurrings (kind, description, amount_cents, category_id, day, method, card_id, start_month, end_month, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    r.kind, r.description, r.amount_cents, r.category_id, r.day, r.method, r.card_id, r.start_month, r.end_month, r.notes, nowIso(),
+    'INSERT INTO recurrings (kind, description, amount_cents, category_id, day, method, card_id, wallet_id, start_month, end_month, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    r.kind, r.description, r.amount_cents, r.category_id, r.day, r.method, r.card_id, r.wallet_id ?? null, r.start_month, r.end_month, r.notes, nowIso(),
   ).lastInsertRowId;
 }
 
@@ -298,8 +346,9 @@ export function exportData() {
 const TABLES: { name: keyof Snapshot; table: string; cols: string[] }[] = [
   { name: 'categories', table: 'categories', cols: ['id', 'name', 'icon', 'color', 'kind', 'archived'] },
   { name: 'cards', table: 'cards', cols: ['id', 'name', 'color', 'closing_day', 'due_day', 'limit_cents', 'archived'] },
-  { name: 'entries', table: 'entries', cols: ['id', 'kind', 'description', 'amount_cents', 'category_id', 'date', 'method', 'card_id', 'installments', 'notes', 'created_at', 'invoice_month'] },
-  { name: 'recurrings', table: 'recurrings', cols: ['id', 'kind', 'description', 'amount_cents', 'category_id', 'day', 'method', 'card_id', 'start_month', 'end_month', 'notes', 'created_at'] },
+  { name: 'wallets', table: 'wallets', cols: ['id', 'name', 'color', 'icon', 'archived'] },
+  { name: 'entries', table: 'entries', cols: ['id', 'kind', 'description', 'amount_cents', 'category_id', 'date', 'method', 'card_id', 'wallet_id', 'installments', 'notes', 'created_at', 'invoice_month'] },
+  { name: 'recurrings', table: 'recurrings', cols: ['id', 'kind', 'description', 'amount_cents', 'category_id', 'day', 'method', 'card_id', 'wallet_id', 'start_month', 'end_month', 'notes', 'created_at'] },
   { name: 'overrides', table: 'recurring_overrides', cols: ['recurring_id', 'month', 'amount_cents', 'skipped'] },
   { name: 'paid', table: 'paid', cols: ['key', 'paid_at'] },
   { name: 'invoiceTotals', table: 'invoice_totals', cols: ['card_id', 'month', 'amount_cents', 'notes'] },

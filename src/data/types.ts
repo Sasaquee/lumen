@@ -2,8 +2,9 @@ export type Kind = 'expense' | 'income';
 export type Method = 'pix' | 'debito' | 'dinheiro' | 'boleto' | 'cartao' | 'vr';
 
 /**
- * Vale refeição é uma carteira à parte: o crédito não é dinheiro na conta e o gasto
- * não sai dela. Por isso os dois ficam fora do caixa e viram saldo próprio.
+ * Vale (refeição, alimentação, combustível...) é uma carteira à parte: o crédito não é
+ * dinheiro na conta e o gasto não sai dela. Por isso os dois ficam fora do caixa.
+ * O método diz só "saiu de um vale"; qual deles vem em `wallet_id`.
  */
 export const VR: Method = 'vr';
 
@@ -13,6 +14,15 @@ export interface Category {
   icon: string;
   color: string;
   kind: Kind;
+  archived: number;
+}
+
+/** Cartão de benefício: vale refeição, alimentação, combustível, cultura... */
+export interface Wallet {
+  id: number;
+  name: string;
+  color: string;
+  icon: string;
   archived: number;
 }
 
@@ -36,6 +46,8 @@ export interface Entry {
   date: string;
   method: Method;
   card_id: number | null;
+  /** Qual vale pagou, quando `method` é `vr`. */
+  wallet_id: number | null;
   installments: number;
   notes: string | null;
   created_at: string;
@@ -56,6 +68,8 @@ export interface Recurring {
   day: number;
   method: Method;
   card_id: number | null;
+  /** Qual vale credita ou paga, quando `method` é `vr`. */
+  wallet_id: number | null;
   start_month: string;
   end_month: string | null;
   notes: string | null;
@@ -113,7 +127,7 @@ export const METHOD_LABELS: Record<Method, string> = {
   dinheiro: 'Dinheiro',
   boleto: 'Boleto',
   cartao: 'Cartão de crédito',
-  vr: 'Vale refeição',
+  vr: 'Vale',
 };
 
 export const METHOD_ICONS: Record<Method, string> = {

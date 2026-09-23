@@ -13,6 +13,7 @@ export type RootStackParamList = {
     /** Pré-preenchimento (usado ao detalhar uma fatura). */
     method?: Method;
     cardId?: number;
+    walletId?: number;
     date?: string;
     /** Fixa a compra nesta fatura (YYYY-MM), independentemente da data escolhida. */
     invoiceMonth?: string;
@@ -20,6 +21,8 @@ export type RootStackParamList = {
   Invoice: { cardId: number; month: string };
   Cards: undefined;
   CardForm: { id?: number };
+  Wallets: undefined;
+  WalletForm: { id?: number };
   Categories: undefined;
   Cycle: undefined;
   Upcoming: undefined;

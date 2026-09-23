@@ -74,6 +74,8 @@ export default function MoreScreen() {
       <Card padded={false} style={{ paddingVertical: 4 }}>
         <ListRow icon="credit-card-outline" iconColor="#9085E9" title="Cartões de crédito" subtitle={`${s.cards.filter((c) => !c.archived).length} cadastrados`} right={chevron} onPress={() => nav.navigate('Cards')} />
         <Divider />
+        <ListRow icon="silverware-fork-knife" iconColor="#2FA84F" title="Vales e benefícios" subtitle={s.wallets.filter((w) => !w.archived).length ? `${s.wallets.filter((w) => !w.archived).length} cadastrados` : 'Vale refeição, alimentação...'} right={chevron} onPress={() => nav.navigate('Wallets')} />
+        <Divider />
         <ListRow icon="shape-outline" iconColor="#3987E5" title="Categorias" subtitle={`${s.categories.filter((c) => !c.archived).length} categorias`} right={chevron} onPress={() => nav.navigate('Categories')} />
         <Divider />
         <ListRow icon="calendar-sync-outline" iconColor="#E8590C" title="Planejamento" subtitle={`${s.recurrings.length} fixos mensais · parcelamentos`} right={chevron} onPress={() => nav.navigate('Plans')} />

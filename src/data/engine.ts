@@ -1,5 +1,5 @@
 import type { Snapshot } from './db';
-import type { Card, Category, Entry, InvoiceTotal, Kind, Method, Recurring } from './types';
+import type { Card, Category, Entry, InvoiceTotal, Kind, Method, Recurring, Wallet } from './types';
 import { CYCLE_START_DAY, VR } from './types';
 import {
   addMonths, CALENDAR_CYCLE_DAY, cycleEnd as cycleEndDate, cycleOf as cycleOfDate, cycleRange as cycleRangeLabel,
@@ -21,6 +21,8 @@ export interface Item {
   categoryId: number | null;
   method: Method;
   cardId: number | null;
+  /** Vale que pagou ou creditou, quando o método é `vr`. */
+  walletId?: number | null;
   paid: boolean;
   installment?: { index: number; total: number };
   entryId?: number;
@@ -87,6 +89,21 @@ export const CARD_CATEGORY: Category = {
  * não detalhado continua em Cartão de crédito.
  */
 export type CardMode = 'grouped' | 'open';
+
+/** Quanto um vale tinha para gastar num ciclo e o que restou dele. */
+export interface WalletSummary {
+  wallet: Wallet;
+  /** Saldo que veio do ciclo anterior. */
+  previous: number;
+  /** Crédito que entrou neste ciclo. */
+  credited: number;
+  /** Gasto pago com este vale no ciclo. */
+  spent: number;
+  /** Tudo que dava para gastar: o que sobrou antes mais o crédito de agora. */
+  total: number;
+  /** O que restou depois dos gastos. */
+  left: number;
+}
 
 export interface MonthData {
   month: string;
@@ -397,7 +414,8 @@ export class Ledger {
         categoryId: e.category_id,
         method: e.method,
         cardId: null,
-        // vale refeição sai do saldo na compra: não existe estado "a pagar"
+        walletId: e.wallet_id,
+        // vale sai do saldo na compra: não existe estado "a pagar"
         paid: e.method === VR || this.paid.has(key),
         installment: n > 1 ? { index: k + 1, total: n } : undefined,
         entryId: e.id,
@@ -421,6 +439,7 @@ export class Ledger {
         categoryId: r.category_id,
         method: r.method,
         cardId: null,
+        walletId: r.wallet_id,
         paid: r.method === VR || this.paid.has(key),
         recurringId: r.id,
         overridden: ov?.amount != null,
@@ -433,10 +452,64 @@ export class Ledger {
   private cache = new Map<string, MonthData>();
   private vrCache = new Map<string, number>();
 
-  // ---------- Vale refeição ----------
-  /** true quando existe algum crédito ou gasto de vale refeição cadastrado. */
+  // ---------- Vales (benefícios) ----------
+  /** Vales ativos, na ordem em que aparecem nas telas. */
+  get wallets(): Wallet[] {
+    return this.snap.wallets.filter((w) => !w.archived);
+  }
+
+  wallet(id: number | null | undefined) {
+    return id == null ? undefined : this.snap.wallets.find((w) => w.id === id);
+  }
+
+  /** true quando existe algum vale cadastrado. */
   get usesVr() {
-    return this.snap.entries.some((e) => e.method === VR) || this.snap.recurrings.some((r) => r.method === VR);
+    return this.snap.wallets.length > 0;
+  }
+
+  /** Quanto entrou e quanto saiu de um vale dentro do ciclo. */
+  walletFlow(walletId: number, cycle: string) {
+    const d = this.month(cycle);
+    let credited = 0;
+    let spent = 0;
+    for (const i of d.incomes) if (i.method === VR && i.walletId === walletId) credited += i.amount;
+    for (const i of d.expenses) if (i.method === VR && i.walletId === walletId) spent += i.amount;
+    return { credited, spent };
+  }
+
+  /** Saldo de um vale no fim do ciclo, acumulado desde o primeiro lançamento. */
+  walletBalance(walletId: number, cycle: string): number {
+    const key = `${walletId}:${cycle}`;
+    const cached = this.vrCache.get(key);
+    if (cached != null) return cached;
+    let total = 0;
+    let m = this.firstCycleWithData();
+    for (let guard = 0; m <= cycle && guard < 600; guard++, m = addMonths(m, 1)) {
+      const f = this.walletFlow(walletId, m);
+      total += f.credited - f.spent;
+    }
+    this.vrCache.set(key, total);
+    return total;
+  }
+
+  /**
+   * O que o vale tinha para gastar no ciclo e o que restou. O "limite" de um vale não
+   * é fixo: é o que sobrou do mês anterior mais o crédito que entrou agora.
+   */
+  walletSummary(walletId: number, cycle: string): WalletSummary | undefined {
+    const wallet = this.wallet(walletId);
+    if (!wallet) return undefined;
+    const { credited, spent } = this.walletFlow(walletId, cycle);
+    const previous = this.walletBalance(walletId, addMonths(cycle, -1));
+    const total = previous + credited;
+    return { wallet, previous, credited, spent, total, left: total - spent };
+  }
+
+  /** Resumo de todos os vales ativos no ciclo. */
+  walletSummaries(cycle: string): WalletSummary[] {
+    return this.wallets
+      .map((w) => this.walletSummary(w.id, cycle))
+      .filter((x): x is WalletSummary => !!x);
   }
 
   /** Primeiro ciclo com algum lançamento: onde o saldo acumulado começa a contar. */
@@ -453,7 +526,7 @@ export class Ledger {
    * seguinte, como no cartão de verdade, então o saldo é acumulado desde o começo.
    */
   vrBalance(cycle: string): number {
-    const cached = this.vrCache.get(cycle);
+    const cached = this.vrCache.get('all:' + cycle);
     if (cached != null) return cached;
     let total = 0;
     let m = this.firstCycleWithData();
@@ -461,7 +534,7 @@ export class Ledger {
       const t = this.month(m).totals;
       total += t.vrIn - t.vrOut;
     }
-    this.vrCache.set(cycle, total);
+    this.vrCache.set('all:' + cycle, total);
     return total;
   }
 

@@ -18,7 +18,7 @@ export default function HomeScreen() {
   const data = ledger.month(month);
   const t = data.totals;
   const isCurrent = month === ledger.currentCycle();
-  const vrSaldo = ledger.usesVr ? ledger.vrBalance(month) : null;
+  const vales = ledger.walletSummaries(month);
 
   // do ciclo selecionado para a frente: o que já passou está nas outras telas
   const ahead = useMemo(() => {
@@ -119,30 +119,56 @@ export default function HomeScreen() {
         <Comp label="Avulsos" value={t.oneOff} icon="receipt-text-outline" />
       </View>
 
-      {vrSaldo != null ? (
-        <Pressable onPress={() => nav.navigate("Month" as never)}>
-          <Card style={styles.vr}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-              <View style={styles.vrIcon}>
-                <Icon name="silverware-fork-knife" size={19} color={colors.primary} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <T size={12.5} color={colors.textSecondary}>Vale refeição · saldo</T>
-                <T size={20} weight="bold" color={vrSaldo >= 0 ? colors.text : colors.danger}>
-                  {formatMoney(vrSaldo)}
+      {vales.length > 0 ? (
+        <Card style={styles.vr}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <T size={12.5} weight="medium" color={colors.textSecondary} style={{ flex: 1 }}>
+              {vales.length === 1 ? 'Vale' : 'Vales'}
+            </T>
+            <Pressable onPress={() => nav.navigate('Wallets' as never)} hitSlop={8}>
+              <T size={12.5} color={colors.primary} weight="medium">Gerenciar</T>
+            </Pressable>
+          </View>
+
+          {vales.map((v) => {
+            const pct = v.total > 0 ? v.spent / v.total : 0;
+            return (
+              <View key={v.wallet.id} style={{ gap: 8 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                  <View style={[styles.vrIcon, { backgroundColor: v.wallet.color + "22" }]}>
+                    <Icon name={v.wallet.icon} size={19} color={v.wallet.color} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <T size={12.5} color={colors.textSecondary}>{v.wallet.name} · restante</T>
+                    <T size={20} weight="bold" color={v.left >= 0 ? colors.text : colors.danger}>
+                      {formatMoney(v.left)}
+                    </T>
+                  </View>
+                  <View style={{ alignItems: 'flex-end' }}>
+                    <T size={12} color={colors.muted}>limite total</T>
+                    <T size={14} weight="semibold" color={colors.textSecondary}>{formatMoney(v.total)}</T>
+                  </View>
+                </View>
+                <View style={styles.vrTrack}>
+                  <View
+                    style={[
+                      styles.vrFill,
+                      { width: `${Math.min(100, Math.max(0, pct * 100))}%`, backgroundColor: v.left >= 0 ? v.wallet.color : colors.danger },
+                    ]}
+                  />
+                </View>
+                <T size={11.5} color={colors.muted}>
+                  {formatMoney(v.spent)} usados{v.previous !== 0 ? ` · ${formatMoney(v.previous)} veio do mês passado` : ''}
                 </T>
               </View>
-              <View style={{ alignItems: 'flex-end', gap: 2 }}>
-                <T size={12} color={colors.muted}>entrou {formatMoney(t.vrIn)}</T>
-                <T size={12} color={colors.muted}>gastou {formatMoney(t.vrOut)}</T>
-              </View>
-            </View>
-            <T size={11.5} color={colors.muted} style={{ lineHeight: 16 }}>
-              Carteira à parte: não entra na sobra do mês e só diminui quando você paga com ele.
-              O que não for usado fica para o mês seguinte.
-            </T>
-          </Card>
-        </Pressable>
+            );
+          })}
+
+          <T size={11.5} color={colors.muted} style={{ lineHeight: 16 }}>
+            Carteira à parte: não entra na sobra do mês e só diminui quando você paga com ela.
+            O que não for usado fica para o mês seguinte.
+          </T>
+        </Card>
       ) : null}
 
       {!hasAnything ? (
@@ -266,7 +292,9 @@ const styles = StyleSheet.create({
   vDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.border },
   tip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, backgroundColor: colors.primarySoft, borderRadius: 12, padding: 10 },
   compRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
-  vr: { marginTop: 12, padding: 16, gap: 10, borderColor: colors.primarySoft },
+  vr: { marginTop: 12, padding: 16, gap: 14, borderColor: colors.primarySoft },
+  vrTrack: { height: 6, borderRadius: 3, backgroundColor: colors.surface3, overflow: 'hidden' },
+  vrFill: { height: '100%', borderRadius: 3 },
   vrIcon: {
     width: 40, height: 40, borderRadius: 13, backgroundColor: colors.primarySoft,
     alignItems: 'center', justifyContent: 'center',

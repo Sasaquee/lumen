@@ -21,6 +21,7 @@ import MoreScreen from './src/screens/MoreScreen';
 import EntryFormScreen from './src/screens/EntryFormScreen';
 import InvoiceScreen from './src/screens/InvoiceScreen';
 import { CardFormScreen, CardsScreen } from './src/screens/CardsScreens';
+import { WalletsScreen, WalletFormScreen } from './src/screens/WalletsScreens';
 import { CategoriesScreen, CategoryFormScreen } from './src/screens/CategoriesScreens';
 import CycleScreen from './src/screens/CycleScreen';
 import UpcomingScreen from './src/screens/UpcomingScreen';
@@ -149,6 +150,8 @@ export default function App() {
             <Stack.Screen name="Invoice" component={InvoiceScreen} options={{ title: 'Fatura' }} />
             <Stack.Screen name="Cards" component={CardsScreen} options={{ title: 'Cartões' }} />
             <Stack.Screen name="CardForm" component={CardFormScreen} options={{ title: 'Cartão' }} />
+        <Stack.Screen name="Wallets" component={WalletsScreen} options={{ title: 'Vales e benefícios' }} />
+        <Stack.Screen name="WalletForm" component={WalletFormScreen} />
             <Stack.Screen name="Categories" component={CategoriesScreen} options={{ title: 'Categorias' }} />
             <Stack.Screen name="Cycle" component={CycleScreen} options={{ title: 'Ciclo do mês' }} />
             <Stack.Screen name="Upcoming" component={UpcomingScreen} options={{ title: 'Próximos pagamentos' }} />

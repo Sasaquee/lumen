@@ -15,8 +15,7 @@ import { formatMoney, installmentAmount } from '../utils/money';
 type Mode = 'single' | 'installments' | 'recurring';
 const METHODS: Method[] = ['pix', 'debito', 'cartao', 'dinheiro', 'boleto', 'vr'];
 /** Para receita a pergunta é outra: onde o dinheiro cai. */
-const INCOME_METHODS: Method[] = ['pix', 'vr'];
-const INCOME_METHOD_LABELS: Partial<Record<Method, string>> = { pix: 'Na conta', vr: 'Vale refeição' };
+
 
 export default function EntryFormScreen({ route, navigation }: RootProps<'EntryForm'>) {
   const insets = useSafeAreaInsets();
@@ -38,6 +37,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
   const [categoryId, setCategoryId] = useState<number | null>(base?.category_id ?? null);
   const [method, setMethod] = useState<Method>(base?.method ?? p.method ?? 'pix');
   const [cardId, setCardId] = useState<number | null>(base?.card_id ?? p.cardId ?? null);
+  const [walletId, setWalletId] = useState<number | null>(base?.wallet_id ?? p.walletId ?? null);
   const defaultDate = p.date ?? (viewMonth === ledger.currentCycle() ? today() : ledger.cycleStart(viewMonth));
   const [date, setDate] = useState(editingEntry?.date ?? defaultDate);
   const [installments, setInstallments] = useState(editingEntry && editingEntry.installments > 1 ? editingEntry.installments : 2);
@@ -53,6 +53,8 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
   const categories = ledger.snap.categories.filter((c) => c.kind === kind && (!c.archived || c.id === categoryId));
   const cards = ledger.snap.cards.filter((c) => !c.archived || c.id === cardId);
   const card = method === 'cartao' ? cards.find((c) => c.id === cardId) : undefined;
+  const wallets = ledger.snap.wallets.filter((w) => !w.archived || w.id === walletId);
+  const wallet = method === 'vr' ? wallets.find((w) => w.id === walletId) : undefined;
   const isExpense = kind === 'expense';
   const effMode: Mode = !isExpense && mode === 'installments' ? 'single' : mode;
 
@@ -111,9 +113,12 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
     if (!desc) return Alert.alert('Informe uma descrição', 'Ou escolha uma categoria.');
     const m: Method = isExpense ? method : (method === 'vr' ? 'vr' : 'pix');
     if (m === 'cartao' && !card) return Alert.alert('Escolha o cartão', 'Selecione um cartão ou cadastre um novo.');
+    if (m === 'vr' && !wallet) return Alert.alert('Escolha o vale', 'Selecione um vale ou cadastre um novo.');
     const common = {
       kind, description: desc, category_id: categoryId, method: m,
-      card_id: m === 'cartao' ? cardId : null, notes: notes.trim() || null,
+      card_id: m === 'cartao' ? cardId : null,
+      wallet_id: m === 'vr' ? walletId : null,
+      notes: notes.trim() || null,
     };
 
     if (effMode === 'recurring') {
@@ -208,6 +213,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
                 <Chip key={mm} label={METHOD_LABELS[mm]} icon={METHOD_ICONS[mm]} active={method === mm} onPress={() => {
                   setMethod(mm);
                   if (mm === 'cartao' && cardId == null && cards.length > 0) setCardId(cards.find((c) => !c.archived)?.id ?? null);
+                  if (mm === 'vr' && walletId == null && wallets.length > 0) setWalletId(wallets.find((w) => !w.archived)?.id ?? null);
                 }} />
               ))}
             </View>
@@ -215,18 +221,41 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
         ) : (
           <Field
             label="Onde cai"
-            hint={method === 'vr' ? 'O vale refeição é uma carteira à parte: não entra no caixa e só é gasto pagando com ele.' : undefined}
+            hint={method === 'vr' ? 'Vale é uma carteira à parte: não entra no caixa e só sai pagando com ele.' : undefined}
           >
             <View style={styles.wrap}>
-              {INCOME_METHODS.map((mm) => (
+              <Chip
+                label="Na conta"
+                icon="bank-outline"
+                active={method !== 'vr'}
+                onPress={() => { setMethod('pix'); setWalletId(null); }}
+              />
+              {wallets.map((w) => (
                 <Chip
-                  key={mm}
-                  label={INCOME_METHOD_LABELS[mm] ?? METHOD_LABELS[mm]}
-                  icon={mm === 'pix' ? 'bank-outline' : METHOD_ICONS[mm]}
-                  active={(method === 'vr' ? 'vr' : 'pix') === mm}
-                  onPress={() => setMethod(mm)}
+                  key={w.id}
+                  label={w.name}
+                  icon={w.icon}
+                  color={w.color}
+                  active={method === 'vr' && walletId === w.id}
+                  onPress={() => { setMethod('vr'); setWalletId(w.id); }}
                 />
               ))}
+              <Chip
+                label={wallets.length ? 'Novo vale' : 'Cadastrar vale'}
+                icon="plus"
+                onPress={() => navigation.navigate('WalletForm', {})}
+              />
+            </View>
+          </Field>
+        )}
+
+        {isExpense && method === 'vr' && (
+          <Field label="Vale" hint="Sai do saldo deste vale, não do caixa.">
+            <View style={styles.wrap}>
+              {wallets.map((w) => (
+                <Chip key={w.id} label={w.name} icon={w.icon} color={w.color} active={walletId === w.id} onPress={() => setWalletId(w.id)} />
+              ))}
+              <Chip label={wallets.length ? 'Novo vale' : 'Cadastrar vale'} icon="plus" onPress={() => navigation.navigate('WalletForm', {})} />
             </View>
           </Field>
         )}
