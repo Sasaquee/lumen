@@ -18,6 +18,7 @@ export default function HomeScreen() {
   const data = ledger.month(month);
   const t = data.totals;
   const isCurrent = month === ledger.currentCycle();
+  const vrSaldo = ledger.usesVr ? ledger.vrBalance(month) : null;
 
   // do ciclo selecionado para a frente: o que já passou está nas outras telas
   const ahead = useMemo(() => {
@@ -117,6 +118,32 @@ export default function HomeScreen() {
         <Comp label="Parcelas" value={t.installments} icon="layers-triple-outline" />
         <Comp label="Avulsos" value={t.oneOff} icon="receipt-text-outline" />
       </View>
+
+      {vrSaldo != null ? (
+        <Pressable onPress={() => nav.navigate("Month" as never)}>
+          <Card style={styles.vr}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View style={styles.vrIcon}>
+                <Icon name="silverware-fork-knife" size={19} color={colors.primary} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <T size={12.5} color={colors.textSecondary}>Vale refeição · saldo</T>
+                <T size={20} weight="bold" color={vrSaldo >= 0 ? colors.text : colors.danger}>
+                  {formatMoney(vrSaldo)}
+                </T>
+              </View>
+              <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                <T size={12} color={colors.muted}>entrou {formatMoney(t.vrIn)}</T>
+                <T size={12} color={colors.muted}>gastou {formatMoney(t.vrOut)}</T>
+              </View>
+            </View>
+            <T size={11.5} color={colors.muted} style={{ lineHeight: 16 }}>
+              Carteira à parte: não entra na sobra do mês e só diminui quando você paga com ele.
+              O que não for usado fica para o mês seguinte.
+            </T>
+          </Card>
+        </Pressable>
+      ) : null}
 
       {!hasAnything ? (
         <Card style={{ marginTop: 16 }}>
@@ -239,6 +266,11 @@ const styles = StyleSheet.create({
   vDivider: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: colors.border },
   tip: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 16, backgroundColor: colors.primarySoft, borderRadius: 12, padding: 10 },
   compRow: { flexDirection: 'row', gap: 10, marginTop: 12 },
+  vr: { marginTop: 12, padding: 16, gap: 10, borderColor: colors.primarySoft },
+  vrIcon: {
+    width: 40, height: 40, borderRadius: 13, backgroundColor: colors.primarySoft,
+    alignItems: 'center', justifyContent: 'center',
+  },
   upRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 9 },
   seeAll: { alignItems: 'center', paddingVertical: 10, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border, marginTop: 4 },
 });

@@ -13,7 +13,10 @@ import { addMonths, formatDateLong, formatDate, fromISODate, monthLabel, monthSh
 import { formatMoney, installmentAmount } from '../utils/money';
 
 type Mode = 'single' | 'installments' | 'recurring';
-const METHODS: Method[] = ['pix', 'debito', 'cartao', 'dinheiro', 'boleto'];
+const METHODS: Method[] = ['pix', 'debito', 'cartao', 'dinheiro', 'boleto', 'vr'];
+/** Para receita a pergunta é outra: onde o dinheiro cai. */
+const INCOME_METHODS: Method[] = ['pix', 'vr'];
+const INCOME_METHOD_LABELS: Partial<Record<Method, string>> = { pix: 'Na conta', vr: 'Vale refeição' };
 
 export default function EntryFormScreen({ route, navigation }: RootProps<'EntryForm'>) {
   const insets = useSafeAreaInsets();
@@ -106,7 +109,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
     const cat = ledger.category(categoryId);
     const desc = description.trim() || cat?.name || '';
     if (!desc) return Alert.alert('Informe uma descrição', 'Ou escolha uma categoria.');
-    const m: Method = isExpense ? method : 'pix';
+    const m: Method = isExpense ? method : (method === 'vr' ? 'vr' : 'pix');
     if (m === 'cartao' && !card) return Alert.alert('Escolha o cartão', 'Selecione um cartão ou cadastre um novo.');
     const common = {
       kind, description: desc, category_id: categoryId, method: m,
@@ -155,7 +158,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
         {!isEdit && (
           <Segmented
             value={kind}
-            onChange={(k) => { setKind(k); setCategoryId(null); }}
+            onChange={(k) => { setKind(k); setCategoryId(null); if (k === 'income' && method !== 'vr') setMethod('pix'); }}
             options={[{ value: 'expense', label: 'Despesa', color: colors.expense }, { value: 'income', label: 'Receita', color: colors.income }]}
           />
         )}
@@ -198,7 +201,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
           </View>
         </Field>
 
-        {isExpense && (
+        {isExpense ? (
           <Field label="Forma de pagamento">
             <View style={styles.wrap}>
               {METHODS.map((mm) => (
@@ -206,6 +209,23 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
                   setMethod(mm);
                   if (mm === 'cartao' && cardId == null && cards.length > 0) setCardId(cards.find((c) => !c.archived)?.id ?? null);
                 }} />
+              ))}
+            </View>
+          </Field>
+        ) : (
+          <Field
+            label="Onde cai"
+            hint={method === 'vr' ? 'O vale refeição é uma carteira à parte: não entra no caixa e só é gasto pagando com ele.' : undefined}
+          >
+            <View style={styles.wrap}>
+              {INCOME_METHODS.map((mm) => (
+                <Chip
+                  key={mm}
+                  label={INCOME_METHOD_LABELS[mm] ?? METHOD_LABELS[mm]}
+                  icon={mm === 'pix' ? 'bank-outline' : METHOD_ICONS[mm]}
+                  active={(method === 'vr' ? 'vr' : 'pix') === mm}
+                  onPress={() => setMethod(mm)}
+                />
               ))}
             </View>
           </Field>

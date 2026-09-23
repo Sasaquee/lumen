@@ -1,6 +1,6 @@
 import type { Snapshot } from './db';
 import type { Card, Category, Entry, InvoiceTotal, Kind, Method, Recurring } from './types';
-import { CYCLE_START_DAY } from './types';
+import { CYCLE_START_DAY, VR } from './types';
 import {
   addMonths, CALENDAR_CYCLE_DAY, cycleEnd as cycleEndDate, cycleOf as cycleOfDate, cycleRange as cycleRangeLabel,
   cycleStart as cycleStartDate, dateInCycle as dateInCycleOf, dateInMonth, dayOf, daysBetween, fromISODate,
@@ -105,6 +105,10 @@ export interface MonthData {
     card: number;
     /** Somatório das partes não detalhadas das faturas do mês. */
     undetailed: number;
+    /** Crédito de vale refeição que entrou no período. */
+    vrIn: number;
+    /** Quanto foi gasto pagando com o vale refeição. */
+    vrOut: number;
   };
 }
 
@@ -393,7 +397,8 @@ export class Ledger {
         categoryId: e.category_id,
         method: e.method,
         cardId: null,
-        paid: this.paid.has(key),
+        // vale refeição sai do saldo na compra: não existe estado "a pagar"
+        paid: e.method === VR || this.paid.has(key),
         installment: n > 1 ? { index: k + 1, total: n } : undefined,
         entryId: e.id,
       });
@@ -416,7 +421,7 @@ export class Ledger {
         categoryId: r.category_id,
         method: r.method,
         cardId: null,
-        paid: this.paid.has(key),
+        paid: r.method === VR || this.paid.has(key),
         recurringId: r.id,
         overridden: ov?.amount != null,
         chargeMonth: cycle,
@@ -426,6 +431,46 @@ export class Ledger {
   }
 
   private cache = new Map<string, MonthData>();
+  private vrCache = new Map<string, number>();
+
+  // ---------- Vale refeição ----------
+  /** true quando existe algum crédito ou gasto de vale refeição cadastrado. */
+  get usesVr() {
+    return this.snap.entries.some((e) => e.method === VR) || this.snap.recurrings.some((r) => r.method === VR);
+  }
+
+  /** Primeiro ciclo com algum lançamento: onde o saldo acumulado começa a contar. */
+  private firstCycleWithData(): string {
+    let first: string | undefined;
+    const take = (m: string) => { if (!first || m < first) first = m; };
+    for (const e of this.snap.entries) take(this.cycleOf(e.date));
+    for (const r of this.snap.recurrings) take(r.start_month);
+    return first ?? this.currentCycle();
+  }
+
+  /**
+   * Saldo do vale refeição no fim do ciclo. O que não foi usado fica para o mês
+   * seguinte, como no cartão de verdade, então o saldo é acumulado desde o começo.
+   */
+  vrBalance(cycle: string): number {
+    const cached = this.vrCache.get(cycle);
+    if (cached != null) return cached;
+    let total = 0;
+    let m = this.firstCycleWithData();
+    for (let guard = 0; m <= cycle && guard < 600; guard++, m = addMonths(m, 1)) {
+      const t = this.month(m).totals;
+      total += t.vrIn - t.vrOut;
+    }
+    this.vrCache.set(cycle, total);
+    return total;
+  }
+
+  /** Quanto sobrou do crédito que entrou neste ciclo (sem contar o acumulado). */
+  vrLeftOfCycle(cycle: string): number {
+    const t = this.month(cycle).totals;
+    return t.vrIn - t.vrOut;
+  }
+
 
   month(month: string): MonthData {
     const cached = this.cache.get(month);
@@ -450,9 +495,15 @@ export class Ledger {
     const sum = (items: Item[]) => items.reduce((s, i) => s + i.amount, 0);
     const cardTotal = invoices.reduce((s, i) => s + i.total, 0);
     const undetailed = invoices.reduce((s, i) => s + i.undetailed, 0);
-    const allExpenses = [...expenses, ...invoices.flatMap((i) => i.items)];
-    const income = sum(incomes);
-    const expense = sum(expenses) + cardTotal;
+    // o vale refeição é uma carteira separada: entra e sai dele, não do caixa
+    const isVr = (i: Item) => i.method === VR;
+    const vrIn = sum(incomes.filter(isVr));
+    const vrOut = sum(expenses.filter(isVr));
+    const cashIncomes = incomes.filter((i) => !isVr(i));
+    const cashExpenses = expenses.filter((i) => !isVr(i));
+    const allExpenses = [...cashExpenses, ...invoices.flatMap((i) => i.items)];
+    const income = sum(cashIncomes);
+    const expense = sum(cashExpenses) + cardTotal;
 
     const data: MonthData = {
       month,
@@ -461,15 +512,17 @@ export class Ledger {
       invoices,
       totals: {
         income,
-        incomeReceived: sum(incomes.filter((i) => i.paid)),
+        incomeReceived: sum(cashIncomes.filter((i) => i.paid)),
         expense,
-        expensePaid: sum(expenses.filter((i) => i.paid)) + invoices.filter((i) => i.paid).reduce((s, i) => s + i.total, 0),
+        expensePaid: sum(cashExpenses.filter((i) => i.paid)) + invoices.filter((i) => i.paid).reduce((s, i) => s + i.total, 0),
         balance: income - expense,
         fixed: sum(allExpenses.filter((i) => i.source === 'recurring')),
         installments: sum(allExpenses.filter((i) => i.source === 'installment')),
         oneOff: sum(allExpenses.filter((i) => i.source === 'entry')) + undetailed,
         card: cardTotal,
         undetailed,
+        vrIn,
+        vrOut,
       },
     };
     this.cache.set(month, data);

@@ -64,6 +64,8 @@ export function openDues(ledger: Ledger, from: string, to: string): Due[] {
   for (let guard = 0; guard < 60 && cycle <= last; guard++, cycle = addMonths(cycle, 1)) {
     const data = ledger.month(cycle);
     for (const it of data.expenses) {
+      // vale refeição sai do saldo na hora da compra: não há nada a vencer nem a lembrar
+      if (it.method === 'vr') continue;
       if (it.paid || it.dueDate < from || it.dueDate > to || seen.has(it.key)) continue;
       seen.add(it.key);
       out.push({ key: it.key, date: it.dueDate, description: it.description, amount: it.amount, item: it });

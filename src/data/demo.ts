@@ -1,6 +1,6 @@
 import Constants from 'expo-constants';
 import { db, saveCard, saveEntry, saveRecurring, setInvoiceTotal, setPaid, setSetting } from './db';
-import { NOTIF_ENABLED } from './types';
+import { NOTIF_ENABLED, type Method } from './types';
 import { addMonths } from '../utils/dates';
 
 /**
@@ -41,16 +41,16 @@ export function maybeSeedDemo() {
 
   const rec = (
     description: string, amount_cents: number, category: string, day: number,
-    method: 'pix' | 'debito' | 'dinheiro' | 'boleto' | 'cartao', card_id: number | null = null,
-    kind: 'expense' | 'income' = 'expense',
+    method: Method, card_id: number | null = null,
+    kind: 'expense' | 'income' = 'expense', start_month = START,
   ) => saveRecurring({
     kind, description, amount_cents, category_id: cat(category), day, method, card_id,
-    start_month: START, end_month: null, notes: null,
+    start_month, end_month: null, notes: null,
   });
 
   const one = (
     description: string, amount_cents: number, category: string, date: string,
-    method: 'pix' | 'debito' | 'dinheiro' | 'boleto' | 'cartao', card_id: number | null = null,
+    method: Method, card_id: number | null = null,
     installments = 1, kind: 'expense' | 'income' = 'expense',
   ) => saveEntry({
     kind, description, amount_cents, category_id: cat(category), date, method, card_id,
@@ -60,6 +60,8 @@ export function maybeSeedDemo() {
   // ---------- receitas ----------
   const salario = rec('Salário', 640000, 'Salário', 5, 'pix', null, 'income');
   one('Freelance — site da padaria', 120000, 'Freelance', '2026-09-12', 'pix', null, 1, 'income');
+  // vale refeição: carteira à parte, creditada todo dia 5
+  const vale = rec('Vale refeição', 80000, 'Outras receitas', 5, 'vr', null, 'income', '2026-08');
 
   // ---------- fixos mensais ----------
   const aluguel = rec('Aluguel', 145000, 'Moradia', 10, 'pix');
@@ -86,12 +88,18 @@ export function maybeSeedDemo() {
   const livro = one('Livro', 6800, 'Educação', '2026-09-21', 'pix');
   one('Presente de casamento', 18000, 'Compras', '2026-09-22', 'cartao', azul);
 
+  // ---------- pagos com o vale refeição ----------
+  one('Mercado da feira', 70500, 'Mercado', '2026-08-12', 'vr');
+  one('Almoço no trabalho', 28400, 'Alimentação', '2026-09-08', 'vr');
+  one('Padaria', 4750, 'Alimentação', '2026-09-14', 'vr');
+  one('Almoço no trabalho', 31200, 'Alimentação', '2026-09-19', 'vr');
+
   // ---------- total informado: mostra o "não detalhado" ----------
   setInvoiceTotal(roxinho, '2026-10', 189000, 'uns deliveries e a farmácia que não lancei');
 
   // ---------- o passado está quitado; só setembro em diante fica em aberto ----------
   const past = monthsBetween(START, SETTLED_UNTIL);
-  for (const id of [salario, aluguel, academia, plano, internet, energia, musica, video]) {
+  for (const id of [salario, aluguel, academia, plano, internet, energia, musica, video, vale]) {
     for (const m of past) setPaid(`r:${id}:${m}`, true);
   }
   for (const m of past) setPaid(`c:${azul}:${m}`, true);

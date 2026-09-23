@@ -16,7 +16,8 @@ export function itemSubtitle(item: Item, categoryName?: string) {
   parts.push(formatDate(item.date));
   if (item.installment) parts.push(`${item.installment.index}/${item.installment.total}`);
   if (item.source === 'recurring') parts.push('Fixo');
-  if (item.cardId == null && item.method !== 'pix' && item.kind === 'expense') parts.push(METHOD_LABELS[item.method]);
+  const showMethod = item.cardId == null && item.method !== 'pix' && (item.kind === 'expense' || item.method === 'vr');
+  if (showMethod) parts.push(METHOD_LABELS[item.method]);
   return parts.join(' · ');
 }
 

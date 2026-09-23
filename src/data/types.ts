@@ -1,5 +1,11 @@
 export type Kind = 'expense' | 'income';
-export type Method = 'pix' | 'debito' | 'dinheiro' | 'boleto' | 'cartao';
+export type Method = 'pix' | 'debito' | 'dinheiro' | 'boleto' | 'cartao' | 'vr';
+
+/**
+ * Vale refeição é uma carteira à parte: o crédito não é dinheiro na conta e o gasto
+ * não sai dela. Por isso os dois ficam fora do caixa e viram saldo próprio.
+ */
+export const VR: Method = 'vr';
 
 export interface Category {
   id: number;
@@ -107,6 +113,7 @@ export const METHOD_LABELS: Record<Method, string> = {
   dinheiro: 'Dinheiro',
   boleto: 'Boleto',
   cartao: 'Cartão de crédito',
+  vr: 'Vale refeição',
 };
 
 export const METHOD_ICONS: Record<Method, string> = {
@@ -115,4 +122,5 @@ export const METHOD_ICONS: Record<Method, string> = {
   dinheiro: 'cash',
   boleto: 'barcode',
   cartao: 'credit-card-chip-outline',
+  vr: 'silverware-fork-knife',
 };
