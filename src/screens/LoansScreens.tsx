@@ -171,6 +171,7 @@ export function LoanFormScreen({ route, navigation }: RootProps<'LoanForm'>) {
     if (principal <= 0) return Alert.alert('Informe o valor liberado', 'Quanto você recebeu ou quanto foi financiado.');
     if (!(parseInt(count, 10) > 0)) return Alert.alert('Informe o número de parcelas');
     if (amounts.some((v) => v <= 0)) return Alert.alert('Informe o valor das parcelas', 'Toda parcela precisa ter valor.');
+    if (releaseDate >= firstDue) return Alert.alert('Confira as datas', 'A data da contratação precisa ser antes do 1º vencimento.');
     if (existing) {
       const prepaid = ledger.snap.loanPrepayments.filter((p) => p.loan_id === existing.id).flatMap((p) => JSON.parse(p.indices) as number[]);
       if (prepaid.some((i) => i >= n)) {
@@ -218,7 +219,12 @@ export function LoanFormScreen({ route, navigation }: RootProps<'LoanForm'>) {
           <MoneyInput value={principal} onChange={setPrincipal} big />
         </View>
 
-        <Field label={type === 'emprestimo' ? 'Data em que o dinheiro caiu' : 'Data do contrato'}>
+        <Field
+          label={type === 'emprestimo' ? 'Data em que pegou o empréstimo' : 'Data da contratação'}
+          hint={releaseDate >= firstDue
+            ? 'Essa data precisa ser antes do 1º vencimento.'
+            : 'Os juros correm a partir dela: muda a taxa e o desconto ao antecipar parcelas.'}
+        >
           <DateButton value={releaseDate} onChange={setReleaseDate} />
         </Field>
 
@@ -401,6 +407,7 @@ export function LoanDetailScreen({ route, navigation }: RootProps<'LoanDetail'>)
 
           <View style={{ marginTop: 16, gap: 10 }}>
             <Row label={loan.type === 'emprestimo' ? 'Valor liberado' : 'Valor financiado'} value={formatMoney(loan.principal_cents)} />
+            <Row label="Contratado em" value={formatDate(loan.release_date)} />
             <Row label="Total do contrato" value={formatMoney(s.contract)} />
             <Row label="Juros e encargos previstos" value={formatMoney(s.interest)} color={colors.warning} />
             <RateRows rate={s.rate} label="Taxa do contrato" />
@@ -421,7 +428,7 @@ export function LoanDetailScreen({ route, navigation }: RootProps<'LoanDetail'>)
           </View>
 
           <T size={11.5} color={colors.muted} style={{ marginTop: 10, lineHeight: 16 }}>
-            A taxa é calculada pelas datas reais: o valor liberado em {formatDate(loan.release_date)} contra cada parcela no seu vencimento.
+            A taxa é calculada pelas datas reais: o valor liberado em {formatDate(loan.release_date)} contra cada parcela no seu vencimento. Se a data da contratação estiver errada, corrija no lápis lá em cima: a taxa e os descontos de antecipação mudam junto.
             {s.effectiveRate ? ' A taxa efetiva considera o que você pagou nas antecipações.' : ''}
           </T>
 
