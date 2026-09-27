@@ -1,13 +1,14 @@
 import React, { useLayoutEffect, useMemo, useState } from 'react';
-import { Alert, KeyboardAvoidingView, Pressable, ScrollView, StyleSheet, Switch, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Switch, View } from 'react-native';
 import { DateTimePickerAndroid } from '@react-native-community/datetimepicker';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
-import { Button, Chip, Field, Icon, Input, MoneyInput, MonthSwitcher, Segmented, Stepper, T, IconButton } from '../components/ui';
+import { Button, Chip, Field, Icon, Input, MoneyInput, MonthSwitcher, Segmented, Stepper, T, IconButton, FormScroll } from '../components/ui';
 import type { RootProps } from '../navigation/types';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
-import { invoiceDates, invoiceMonthFor } from '../data/engine';
+import { entryOffset, entryParcel, hasCustomParcels, invoiceDates, invoiceMonthFor } from '../data/engine';
+import { ParcelEditor } from '../components/ParcelEditor';
 import { METHOD_ICONS, METHOD_LABELS, type Kind, type Method } from '../data/types';
 import { addMonths, formatDateLong, formatDate, fromISODate, monthLabel, monthShort, toISODate, today } from '../utils/dates';
 import { formatMoney, installmentAmount } from '../utils/money';
@@ -49,6 +50,12 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
   // detalhe de um total informado: a compra pertence àquela fatura, não à data
   const pinnedInvoice = p.invoiceMonth ?? editingEntry?.invoice_month ?? null;
   const [paidNow, setPaidNow] = useState(editingEntry ? ledger.isPaid(`e:${editingEntry.id}:0`) : true);
+  // parcelas de valores diferentes: a lista manda e o total é a soma dela
+  const [parcels, setParcels] = useState<number[] | null>(() => {
+    if (!editingEntry || !hasCustomParcels(editingEntry)) return null;
+    return Array.from({ length: editingEntry.installments }, (_, k) => entryParcel(editingEntry, k));
+  });
+  const offset = editingEntry ? entryOffset(editingEntry) : 0;
 
   const categories = ledger.snap.categories.filter((c) => c.kind === kind && (!c.archived || c.id === categoryId));
   const cards = ledger.snap.cards.filter((c) => !c.archived || c.id === cardId);
@@ -65,7 +72,31 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
   // se a parcela ainda é a que saiu daquele total, o total volta inteiro em vez de amount × n
   const keptTotal =
     splitFrom != null && installmentAmount(splitFrom, installments, 1) === amount ? splitFrom : null;
-  const total = effMode === 'installments' && !amountIsTotal ? keptTotal ?? amount * installments : amount;
+  const custom = effMode === 'installments' && parcels != null;
+  const total = custom
+    ? parcels.reduce((s, v) => s + v, 0)
+    : effMode === 'installments' && !amountIsTotal ? keptTotal ?? amount * installments : amount;
+
+  /** Liga a lista de parcelas partindo do valor que já está no formulário. */
+  const toggleCustom = (on: boolean) => {
+    if (!on) { setAmount(total); setAmountIsTotal(true); setSplitFrom(null); setParcels(null); return; }
+    setParcels(Array.from({ length: installments }, (_, k) => installmentAmount(total, installments, k)));
+  };
+
+  /** Mudar o número de parcelas estica ou corta a lista, repetindo o último valor. */
+  const changeInstallments = (n: number) => {
+    setInstallments(n);
+    if (parcels) {
+      const last = parcels[parcels.length - 1] ?? 0;
+      setParcels(n <= parcels.length ? parcels.slice(0, n) : [...parcels, ...Array(n - parcels.length).fill(last)]);
+    }
+  };
+
+  /** Mês em que cai a parcela `i`, para os rótulos da lista. */
+  const parcelMonth = (i: number) => {
+    if (card) return addMonths(pinnedInvoice ?? invoiceMonthFor(card, date), i);
+    return addMonths(ledger.cycleOf(date), i);
+  };
 
   /** Troca a base do valor convertendo o que está no campo, em vez de só trocar o rótulo. */
   const toggleAmountBasis = () => {
@@ -81,7 +112,11 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
       return null;
     }
     const parts: string[] = [];
-    if (effMode === 'installments' && total > 0) {
+    if (custom && total > 0) {
+      const lo = Math.min(...parcels!);
+      const hi = Math.max(...parcels!);
+      parts.push(`${installments} parcelas de ${formatMoney(lo)}${hi !== lo ? ` a ${formatMoney(hi)}` : ''} · total ${formatMoney(total)}`);
+    } else if (effMode === 'installments' && total > 0) {
       parts.push(`${installments}x de ${formatMoney(installmentAmount(total, installments, 1))} · total ${formatMoney(total)}`);
     }
     if (card) {
@@ -96,7 +131,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
       parts.push(`De ${monthShort(firstCycle, true)} até ${monthShort(addMonths(firstCycle, installments - 1), true)}`);
     }
     return parts.join('\n');
-  }, [isExpense, effMode, card, day, total, installments, date, pinnedInvoice]);
+  }, [isExpense, effMode, card, day, total, installments, date, pinnedInvoice, custom, parcels]);
 
   const pickDate = () => {
     DateTimePickerAndroid.open({
@@ -107,7 +142,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
   };
 
   const save = () => {
-    if (amount <= 0) return Alert.alert('Informe o valor', 'O valor precisa ser maior que zero.');
+    if (custom ? total <= 0 : amount <= 0) return Alert.alert('Informe o valor', 'O valor precisa ser maior que zero.');
     const cat = ledger.category(categoryId);
     const desc = description.trim() || cat?.name || '';
     if (!desc) return Alert.alert('Informe uma descrição', 'Ou escolha uma categoria.');
@@ -150,6 +185,7 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
       date,
       installments: n,
       invoice_month: m === 'cartao' ? pinnedInvoice : null,
+      installment_amounts: custom ? JSON.stringify(parcels) : null,
     });
     if (n === 1 && m !== 'cartao') db.setPaid(`e:${id}:0`, paidNow);
     done();
@@ -158,8 +194,8 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
   const done = () => { refresh(); navigation.goBack(); };
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1, backgroundColor: colors.bg }} behavior={undefined}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 24 }} keyboardShouldPersistTaps="handled">
+    <View style={{ flex: 1, backgroundColor: colors.bg }}>
+      <FormScroll contentContainerStyle={{ padding: 16, gap: 20, paddingBottom: 24 }}>
         {!isEdit && (
           <Segmented
             value={kind}
@@ -170,10 +206,14 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
 
         <View style={styles.amountBox}>
           <T size={13} color={colors.muted} align="center">
-            {effMode === 'installments' ? (amountIsTotal ? 'Valor total da compra' : 'Valor de cada parcela') : effMode === 'recurring' ? 'Valor mensal' : 'Valor'}
+            {custom ? 'Total (soma das parcelas)' : effMode === 'installments' ? (amountIsTotal ? 'Valor total da compra' : 'Valor de cada parcela') : effMode === 'recurring' ? 'Valor mensal' : 'Valor'}
           </T>
-          <MoneyInput value={amount} onChange={setAmount} big autoFocus={!isEdit} color={isExpense ? colors.text : colors.income} />
-          {effMode === 'installments' && (
+          {custom ? (
+            <T size={38} weight="bold" align="center" style={{ paddingVertical: 4 }}>{formatMoney(total)}</T>
+          ) : (
+            <MoneyInput value={amount} onChange={setAmount} big autoFocus={!isEdit} color={isExpense ? colors.text : colors.income} />
+          )}
+          {effMode === 'installments' && !custom && (
             <Pressable onPress={toggleAmountBasis} style={{ alignSelf: 'center', flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <Icon name="swap-horizontal" size={16} color={colors.primary} />
               <T size={13} color={colors.primary} weight="medium">{amountIsTotal ? 'Informar valor da parcela' : 'Informar valor total'}</T>
@@ -291,8 +331,32 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
           <>
             {effMode === 'installments' && (
               <Field label="Número de parcelas">
-                <Stepper value={installments} onChange={setInstallments} min={2} max={72} format={(v) => `${v}x`} />
+                <Stepper value={installments} onChange={changeInstallments} min={2} max={72} format={(v) => `${v}x`} />
               </Field>
+            )}
+            {effMode === 'installments' && (
+              <View style={{ gap: 10 }}>
+                <View style={styles.switchRow}>
+                  <Icon name="format-list-numbered" size={20} color={custom ? colors.primary : colors.muted} />
+                  <View style={{ flex: 1 }}>
+                    <T>Parcelas com valores diferentes</T>
+                    <T size={12} color={colors.muted}>Ajuste o valor de cada parcela</T>
+                  </View>
+                  <Switch value={custom} onValueChange={toggleCustom} trackColor={{ true: colors.primaryDark, false: colors.surface3 }} thumbColor={custom ? colors.primary : colors.muted} />
+                </View>
+                {custom ? (
+                  <ParcelEditor values={parcels!} onChange={setParcels} labelOf={parcelMonth} dimBefore={offset} />
+                ) : null}
+                {!isEdit ? (
+                  <Pressable onPress={() => navigation.replace('LoanForm', {})} style={styles.loanLink}>
+                    <Icon name="bank-outline" size={18} color={colors.primary} />
+                    <T size={13} color={colors.primary} weight="medium" style={{ flex: 1 }}>
+                      É um empréstimo ou financiamento? Cadastre como contrato
+                    </T>
+                    <Icon name="chevron-right" size={18} color={colors.primary} />
+                  </Pressable>
+                ) : null}
+              </View>
             )}
             <Field label={card ? 'Data da compra' : effMode === 'installments' ? 'Data da 1ª parcela' : 'Data'}>
               <Pressable onPress={pickDate} style={styles.dateBtn}>
@@ -324,18 +388,19 @@ export default function EntryFormScreen({ route, navigation }: RootProps<'EntryF
         <Field label="Observação (opcional)">
           <Input value={notes} onChangeText={setNotes} placeholder="Anotações" multiline style={{ height: 80, paddingTop: 12, textAlignVertical: 'top' }} />
         </Field>
-      </ScrollView>
+      </FormScroll>
       <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
         <Button title={isEdit ? 'Salvar alterações' : 'Adicionar'} icon="check" onPress={save} />
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   amountBox: { backgroundColor: colors.surface, borderRadius: 20, paddingVertical: 16, paddingHorizontal: 12, gap: 4, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 14, paddingHorizontal: 14, height: 54, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  switchRow: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 14, paddingHorizontal: 14, minHeight: 54, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  loanLink: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 4, paddingVertical: 6 },
   dateBtn: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.surface, borderRadius: 14, paddingLeft: 14, paddingRight: 8, height: 54, borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   preview: { flexDirection: 'row', gap: 10, backgroundColor: colors.primarySoft, borderRadius: 14, padding: 12 },
   footer: { paddingHorizontal: 16, paddingTop: 12, backgroundColor: colors.bg, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },

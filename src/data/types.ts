@@ -56,6 +56,52 @@ export interface Entry {
    * é o caso de detalhar um gasto dentro de um total informado.
    */
   invoice_month: string | null;
+  /**
+   * Valor de cada parcela em centavos (JSON), quando elas não são iguais. Nulo = total
+   * dividido igualmente. Quando existe, `amount_cents` é a soma dela.
+   */
+  installment_amounts: string | null;
+  /**
+   * Quantas parcelas iniciais ficam de fora. Uma compra importada na parcela 8/10
+   * aparece só da 8ª em diante: as sete anteriores já passaram e o app não as conhece.
+   */
+  installment_offset: number;
+  /** De onde veio a linha: `csv` ou `print`. Nulo = digitado à mão. */
+  import_source: string | null;
+}
+
+export type LoanType = 'emprestimo' | 'financiamento';
+
+/** Empréstimo ou financiamento: um contrato com parcelas de valores próprios. */
+export interface Loan {
+  id: number;
+  type: LoanType;
+  description: string;
+  /** Banco ou financeira. */
+  lender: string | null;
+  category_id: number | null;
+  /** Valor liberado (o que você recebeu ou o que foi financiado). */
+  principal_cents: number;
+  release_date: string;
+  /** 1 = o valor liberado entra como receita na data da liberação. */
+  as_income: number;
+  /** Data de vencimento da 1ª parcela; as seguintes vencem no mesmo dia dos meses seguintes. */
+  first_due: string;
+  /** Valor de cada parcela em centavos (JSON). O tamanho é o número de parcelas. */
+  installment_amounts: string;
+  method: Method;
+  notes: string | null;
+  created_at: string;
+}
+
+/** Pagamento antecipado de uma ou mais parcelas, normalmente com desconto dos juros. */
+export interface LoanPrepayment {
+  id: number;
+  loan_id: number;
+  date: string;
+  amount_cents: number;
+  /** Índices (0-based) das parcelas quitadas, em JSON. */
+  indices: string;
 }
 
 /** Lançamento recorrente mensal. */
@@ -105,15 +151,15 @@ export const NOTIF_ENABLED = 'notif_enabled';
 export const NOTIF_HOUR = 'notif_hour';
 export const NOTIF_OFFSETS = 'notif_offsets';
 
-/**
- * Total da fatura de um cartão informado manualmente pelo usuário.
- * Os lançamentos do cartão no mês formam o "detalhado"; a diferença é gasto não detalhado.
- */
-export interface InvoiceTotal {
-  card_id: number;
-  month: string;
-  amount_cents: number;
-  notes: string | null;
+/** Lê a lista de valores de parcela gravada em JSON; null quando não há ou está corrompida. */
+export function parseAmounts(json: string | null | undefined): number[] | null {
+  if (!json) return null;
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) && v.every((n) => Number.isInteger(n)) ? v : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface Paid {

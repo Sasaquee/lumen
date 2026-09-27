@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { db, saveCard, saveEntry, saveRecurring, saveWallet, setInvoiceTotal, setPaid, setSetting } from './db';
+import { addLoanPrepayment, db, saveCard, saveEntry, saveLoan, saveRecurring, saveWallet, setInvoiceTotal, setPaid, setSetting } from './db';
 import { NOTIF_ENABLED, type Method } from './types';
 import { addMonths } from '../utils/dates';
 
@@ -99,6 +99,31 @@ export function maybeSeedDemo() {
   one('Compra do mês', 48900, 'Mercado', '2026-08-16', 'vr', null, 1, 'expense', va);
   one('Hortifruti', 9830, 'Mercado', '2026-09-11', 'vr', null, 1, 'expense', va);
   one('Compra do mês', 41250, 'Mercado', '2026-09-20', 'vr', null, 1, 'expense', va);
+
+  // ---------- vindo de importação: compra que entrou no app já na parcela 3 de 5 ----------
+  saveEntry({
+    kind: 'expense', description: 'Loja de roupas', amount_cents: 5 * 11980, category_id: cat('Compras'),
+    date: '2026-07-18', method: 'cartao', card_id: azul, wallet_id: null, installments: 5, notes: null,
+    invoice_month: '2026-08', installment_offset: 2, import_source: 'csv', installment_amounts: null,
+  });
+
+  // ---------- empréstimo e financiamento ----------
+  const emprestimo = saveLoan({
+    type: 'emprestimo', description: 'Empréstimo pessoal', lender: 'Banco Exemplo', category_id: cat('Outros'),
+    principal_cents: 800000, release_date: '2026-03-10', as_income: 1, first_due: '2026-04-10',
+    installment_amounts: JSON.stringify(Array(18).fill(58900)), method: 'boleto', notes: null,
+  });
+  setPaid(`li:${emprestimo}`, true);
+  for (let k = 0; k < 6; k++) setPaid(`l:${emprestimo}:${k}`, true);
+  // as duas últimas quitadas antes, com o desconto dos juros
+  addLoanPrepayment(emprestimo, '2026-08-20', 76000, [16, 17]);
+  // parcela maior no primeiro ano, menor depois: parcelas de valor próprio
+  const moto = saveLoan({
+    type: 'financiamento', description: 'Financiamento da moto', lender: 'Financeira Exemplo', category_id: cat('Transporte'),
+    principal_cents: 1500000, release_date: '2026-02-15', as_income: 0, first_due: '2026-03-15',
+    installment_amounts: JSON.stringify(Array.from({ length: 36 }, (_, i) => (i < 12 ? 62000 : 54500))), method: 'debito', notes: null,
+  });
+  for (let k = 0; k < 7; k++) setPaid(`l:${moto}:${k}`, true);
 
   // ---------- total informado: mostra o "não detalhado" ----------
   setInvoiceTotal(roxinho, '2026-10', 189000, 'uns deliveries e a farmácia que não lancei');

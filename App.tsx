@@ -27,6 +27,12 @@ import CycleScreen from './src/screens/CycleScreen';
 import UpcomingScreen from './src/screens/UpcomingScreen';
 import NotificationsScreen from './src/screens/NotificationsScreen';
 import NotificationCenterScreen from './src/screens/NotificationCenterScreen';
+import ImportInvoiceScreen from './src/screens/ImportInvoiceScreen';
+import OcrLabScreen from './src/screens/OcrLabScreen';
+import ImportHelpScreen from './src/screens/ImportHelpScreen';
+import LockSettingsScreen from './src/screens/LockSettingsScreen';
+import { LockGate } from './src/components/LockGate';
+import { LoanDetailScreen, LoanFormScreen, LoansScreen } from './src/screens/LoansScreens';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -133,6 +139,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <StoreProvider>
+        <LockGate>
         <NavigationContainer ref={navigationRef} theme={navTheme}>
           <StatusBar style="light" />
           <Stack.Navigator
@@ -148,6 +155,13 @@ export default function App() {
             <Stack.Screen name="Tabs" component={Tabs} options={{ headerShown: false }} />
             <Stack.Screen name="EntryForm" component={EntryFormScreen} options={{ title: 'Novo lançamento', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="Invoice" component={InvoiceScreen} options={{ title: 'Fatura' }} />
+            <Stack.Screen name="ImportInvoice" component={ImportInvoiceScreen} options={{ title: 'Importar fatura' }} />
+            <Stack.Screen name="ImportHelp" component={ImportHelpScreen} options={{ title: 'Importar: como funciona' }} />
+            <Stack.Screen name="LockSettings" component={LockSettingsScreen} options={{ title: 'Bloqueio do app' }} />
+            <Stack.Screen name="Loans" component={LoansScreen} options={{ title: 'Empréstimos e financiamentos' }} />
+            <Stack.Screen name="LoanForm" component={LoanFormScreen} options={{ title: 'Contrato' }} />
+            <Stack.Screen name="LoanDetail" component={LoanDetailScreen} options={{ title: 'Contrato' }} />
+            {__DEV__ ? <Stack.Screen name="OcrLab" component={OcrLabScreen} options={{ title: 'Laboratório de OCR' }} /> : null}
             <Stack.Screen name="Cards" component={CardsScreen} options={{ title: 'Cartões' }} />
             <Stack.Screen name="CardForm" component={CardFormScreen} options={{ title: 'Cartão' }} />
         <Stack.Screen name="Wallets" component={WalletsScreen} options={{ title: 'Vales e benefícios' }} />
@@ -161,6 +175,7 @@ export default function App() {
             <Stack.Screen name="CategoryForm" component={CategoryFormScreen} options={{ title: 'Categoria' }} />
           </Stack.Navigator>
         </NavigationContainer>
+        </LockGate>
       </StoreProvider>
     </SafeAreaProvider>
   );

@@ -56,6 +56,8 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
 
   const chargeMonth = item.chargeMonth ?? monthOf(item.date);
 
+  const openLoan = () => { setMenu(false); nav.navigate('LoanDetail', { id: item.loanId! }); };
+
   const edit = () => {
     setMenu(false);
     if (item.recurringId) nav.navigate('EntryForm', { recurringId: item.recurringId, editMonth: chargeMonth });
@@ -90,7 +92,7 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
   return (
     <>
       <ListRow
-        icon={isInvoice ? 'credit-card-outline' : cat?.icon}
+        icon={isInvoice ? 'credit-card-outline' : cat?.icon ?? (item.loanId != null ? 'bank-outline' : 'tag-outline')}
         iconColor={isInvoice ? invoice?.card.color : cat?.color}
         title={item.description}
         subtitle={isInvoice ? invoiceSubtitle(invoice) : itemSubtitle(item, cat?.name, ledger.wallet(item.walletId)?.name)}
@@ -144,7 +146,9 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
             {inCard && (showCheck || synthetic) && (
               <SheetAction icon="credit-card-outline" label="Ver fatura" onPress={() => { setMenu(false); nav.navigate('Invoice', { cardId: item.cardId!, month: item.invoiceMonth ?? month }); }} />
             )}
-            {synthetic ? (
+            {item.loanId != null ? (
+              <SheetAction icon="bank-outline" label="Ver contrato" onPress={openLoan} />
+            ) : synthetic ? (
               <T size={12.5} color={colors.muted} style={{ paddingHorizontal: 12, paddingVertical: 8, lineHeight: 18 }}>
                 É a parte do total informado que ainda não foi detalhada. Para mudar, ajuste o total da fatura
                 ou lance os gastos que você lembra.

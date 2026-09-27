@@ -19,6 +19,15 @@ export type RootStackParamList = {
     invoiceMonth?: string;
   };
   Invoice: { cardId: number; month: string };
+  /** Importar CSV ou prints para a fatura que vence em `month`. */
+  ImportInvoice: { cardId: number; month: string };
+  ImportHelp: undefined;
+  LockSettings: undefined;
+  Loans: undefined;
+  LoanForm: { id?: number };
+  LoanDetail: { id: number };
+  /** Só na build de desenvolvimento. */
+  OcrLab: undefined;
   Cards: undefined;
   CardForm: { id?: number };
   Wallets: undefined;

@@ -47,3 +47,7 @@ yarn-error.*
 
 # dados financeiros reais (extratos) nunca vao para o repositorio
 *.csv
+
+# build do módulo nativo local
+modules/*/android/build/
+modules/*/android/.cxx/

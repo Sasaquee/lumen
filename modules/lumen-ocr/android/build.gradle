@@ -1,0 +1,20 @@
+plugins {
+  id 'com.android.library'
+  id 'expo-module-gradle-plugin'
+}
+
+group = 'com.lumen.financas'
+version = '1.0.0'
+
+android {
+  namespace "expo.modules.lumenocr"
+  defaultConfig {
+    versionCode 1
+    versionName '1.0.0'
+  }
+}
+
+dependencies {
+  // modelo latino embutido no APK: reconhece offline, sem baixar nada do Google Play
+  implementation 'com.google.mlkit:text-recognition:16.0.1'
+}

@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, palette } from '../theme';
-import { Button, Card, CategoryIcon, Divider, Field, Icon, Input, ListRow, Segmented, T } from '../components/ui';
+import { Button, Card, CategoryIcon, Divider, Field, Icon, Input, ListRow, Segmented, T, FormScroll } from '../components/ui';
 import type { RootProps } from '../navigation/types';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
@@ -66,7 +66,7 @@ export function CategoryFormScreen({ route, navigation }: RootProps<'CategoryFor
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} keyboardShouldPersistTaps="handled">
+      <FormScroll contentContainerStyle={{ padding: 16, gap: 20 }}>
         <View style={{ alignItems: 'center', gap: 10 }}>
           <CategoryIcon icon={icon} color={color} size={72} />
           <T size={17} weight="semibold">{name || 'Nome da categoria'}</T>
@@ -96,7 +96,7 @@ export function CategoryFormScreen({ route, navigation }: RootProps<'CategoryFor
           </View>
         </Field>
         {existing && <Button title="Excluir categoria" icon="trash-can-outline" variant="danger" onPress={remove} />}
-      </ScrollView>
+      </FormScroll>
       <View style={{ padding: 16, paddingBottom: insets.bottom + 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}>
         <Button title="Salvar" icon="check" onPress={save} />
       </View>

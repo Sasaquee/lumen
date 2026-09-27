@@ -1,6 +1,7 @@
 import React from 'react';
 import {
-  ActivityIndicator, Modal, Pressable, StyleSheet, Text, TextInput, TextProps, TextStyle, View, ViewStyle,
+  ActivityIndicator, Keyboard, Modal, Pressable, ScrollView, type ScrollViewProps, StyleSheet, Text, TextInput, TextProps,
+  TextStyle, useWindowDimensions, View, ViewStyle,
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -232,15 +233,72 @@ export function EmptyState({ icon, title, text, action }: { icon: string; title:
   );
 }
 
+/**
+ * ScrollView de formulário que não deixa o teclado cobrir o campo. Com a tela de ponta
+ * a ponta do Android recente, o sistema não encolhe mais o app quando o teclado abre:
+ * aqui o conteúdo ganha espaço embaixo e rola até o campo focado ficar visível.
+ */
+export function FormScroll({ contentContainerStyle, children, onScroll, ...rest }: ScrollViewProps) {
+  const ref = React.useRef<ScrollView>(null);
+  const offset = React.useRef(0);
+  const [keyboard, setKeyboard] = React.useState(0);
+  React.useEffect(() => {
+    const reveal = (keyboardTop: number) => {
+      const input = TextInput.State.currentlyFocusedInput?.();
+      if (!input) return;
+      // espera o espaço extra entrar no layout antes de medir
+      setTimeout(() => {
+        input.measureInWindow((_x, y, _w, h) => {
+          const overflow = y + h - (keyboardTop - 24);
+          if (overflow > 0) ref.current?.scrollTo({ y: offset.current + overflow, animated: true });
+        });
+      }, 60);
+    };
+    const show = Keyboard.addListener('keyboardDidShow', (e) => {
+      setKeyboard(e.endCoordinates.height);
+      reveal(e.endCoordinates.screenY);
+    });
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(0));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return (
+    <ScrollView
+      ref={ref}
+      keyboardShouldPersistTaps="handled"
+      scrollEventThrottle={16}
+      onScroll={(e) => { offset.current = e.nativeEvent.contentOffset.y; onScroll?.(e); }}
+      {...rest}
+      contentContainerStyle={[contentContainerStyle, keyboard ? { paddingBottom: keyboard + 24 } : null]}
+    >
+      {children}
+    </ScrollView>
+  );
+}
+
+/**
+ * Folha que sobe de baixo. O modal não é redimensionado pelo teclado do Android, então
+ * ela acompanha a altura do teclado sozinha e vira rolável quando não cabe — senão o
+ * teclado cobre o campo e o botão de salvar.
+ */
 export function Sheet({ visible, onClose, children, title }: { visible: boolean; onClose: () => void; children: React.ReactNode; title?: string }) {
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
+  const [keyboard, setKeyboard] = React.useState(0);
+  React.useEffect(() => {
+    if (!visible) return;
+    const show = Keyboard.addListener('keyboardDidShow', (e) => setKeyboard(e.endCoordinates.height));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setKeyboard(0));
+    return () => { show.remove(); hide.remove(); setKeyboard(0); };
+  }, [visible]);
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent navigationBarTranslucent>
       <Pressable style={styles.backdrop} onPress={onClose} />
-      <View style={[styles.sheet, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.sheet, { paddingBottom: (keyboard || insets.bottom) + 16, maxHeight: height - insets.top - 24 }]}>
         <View style={styles.grabber} />
         {title ? <T size={17} weight="bold" style={{ marginBottom: 10, paddingHorizontal: 4 }}>{title}</T> : null}
-        {children}
+        <ScrollView keyboardShouldPersistTaps="handled" bounces={false} contentContainerStyle={{ flexGrow: 0 }}>
+          {children}
+        </ScrollView>
       </View>
     </Modal>
   );

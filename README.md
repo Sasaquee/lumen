@@ -77,6 +77,66 @@ lançar item por item.
 
 <br clear="right">
 
+### Importar a fatura do banco
+
+<img src="docs/screenshots/importar.png" width="230" align="right" alt="Prévia da importação">
+
+Em vez de digitar compra por compra, importe a fatura na tela do cartão:
+
+- **CSV** — o do Nubank, disponível mesmo com a fatura aberta, ou um que você monta numa
+  planilha (`data;descricao;valor`) quando o banco não exporta nem deixa tirar print.
+- **Prints da fatura** — Neon, Mercado Pago, Itaú e parecidos. A leitura (OCR) é feita
+  **no próprio celular, sem internet**. Dá para escolher vários prints em sequência.
+
+Nada é salvo antes de você conferir: a prévia mostra cada compra com data, parcela e uma
+categoria sugerida, deixa de fora o pagamento da fatura anterior e desmarca o que parece
+algo já lançado à mão. A leitura de print pode errar um detalhe — toque na compra para
+corrigir valor, data, parcela, descrição ou categoria.
+
+Compras parceladas entram inteiras: a "Parcela 2/4" já aparece nas faturas seguintes.
+Importar de novo o mesmo mês **compara** com o que já existe — o que entrou, saiu ou mudou
+de valor — e pergunta antes de substituir. Diferença de centavos na mesma parcela é
+arredondamento do banco e só ajusta aquela parcela. Fechamento, vencimento e limite do
+cartão **nunca** vêm do arquivo: vêm do cadastro do cartão.
+
+A tela *Como funciona e dicas* traz o modelo de CSV para baixar e dicas para um print que
+o app lê bem.
+
+<br clear="right">
+
+### Empréstimos e financiamentos
+
+<img src="docs/screenshots/emprestimo.png" width="230" align="right" alt="Detalhe do empréstimo">
+
+Um contrato com valor liberado, parcelas e vencimentos — as parcelas podem ter **valores
+diferentes** (tabela SAC, carência, parcela intermediária). O app calcula a **taxa de juros
+ao mês e ao ano** pelas datas reais e mostra o saldo devedor.
+
+Cada parcela futura mostra quanto custaria **antecipar hoje**: pela regra do Banco Central
+(CDC art. 52 e Resolução CMN 3.516), a parcela é trazida a valor presente pela taxa do
+contrato, e o valor muda sozinho a cada dia. Ao registrar uma antecipação, as parcelas saem
+dos meses de origem, o valor pago entra no mês do pagamento e a economia e a taxa efetiva
+aparecem no contrato. Opcionalmente, o valor liberado entra como receita.
+
+Compras parceladas comuns também aceitam **parcelas de valores diferentes**: ajuste "esta"
+ou "esta e as seguintes", e o total vira a soma delas.
+
+<br clear="right">
+
+### Bloqueio do app
+
+<img src="docs/screenshots/bloqueio.png" width="230" align="right" alt="Tela de bloqueio">
+
+**PIN, senha ou padrão 3x3**, com a digital como atalho. Pede ao abrir e ao voltar depois
+de 1, 5, 15 ou 30 minutos fora — ou só ao abrir. Sair para escolher um arquivo ou print
+não conta.
+
+Como o app não tem conta nem internet, a recuperação é um **código gerado na criação da
+senha**, mostrado uma única vez: ele libera o app se você esquecer a senha. Senha e código
+ficam só como hash no aparelho e não vão no backup.
+
+<br clear="right">
+
 ### Já cobrado × projeção
 
 <img src="docs/screenshots/projecao.png" width="230" align="right" alt="Já cobrado e projeção">
@@ -184,6 +244,10 @@ pede nenhuma permissão de rede para funcionar.
 Tudo fica num banco SQLite dentro do aparelho, na área privada do app. Nada é enviado
 para lugar nenhum — nem para o autor, nem para terceiros, nem para serviços de análise.
 
+A leitura dos prints de fatura usa um modelo de OCR **embutido no app** (ML Kit, modelo
+latino): a imagem é processada no aparelho e não sai dele. A senha do app e o código de
+recuperação ficam guardados só como hash e não entram no backup exportado.
+
 Em **Mais → Exportar backup** você gera um arquivo `.json` e escolhe onde salvar; em
 **Apagar todos os dados**, zera tudo. Desinstalar o app também apaga o banco, então
 exporte antes se quiser guardar o histórico.
@@ -202,6 +266,9 @@ src/data/db.ts             schema SQLite, CRUD, backup/restauração
 src/data/engine.ts         cálculo dos meses: recorrentes, parcelas, faturas de cartão, totais
 src/data/store.tsx         contexto global (ledger + mês selecionado)
 src/data/demo.ts           dados fictícios das capturas de tela (só na build de demonstração)
+src/data/import/           leitura de CSV e de prints (OCR), categorização e comparação com o que já existe
+src/data/lock.ts           bloqueio: hash da senha, código de recuperação, tempo em segundo plano
+modules/lumen-ocr/         módulo nativo local: OCR do ML Kit no aparelho (modelo latino embutido)
 src/components/            UI base, gráficos, linha de lançamento
 src/screens/               Início, Mês, Tabela, Mais, formulários, fatura, cartões, categorias, ciclo, planos, próximos pagamentos, central de avisos
 src/utils/dates.ts         mês civil e ciclo financeiro (início, fim, a que ciclo uma data pertence)
@@ -258,5 +325,13 @@ está ligado e o banco está vazio. Desfaça os três passos antes de gerar a bu
 - Cada item carrega `dueDate`: no cartão é o vencimento da fatura, fora dele é a própria data. É por ela que `byCategoryRange` soma períodos no nível do dia, então cada parcela conta uma vez só, no mês em que é paga.
 - **Lembretes** são notificações locais agendadas por data, agrupadas por **dia em que o aviso dispara** — não por vencimento. No fim do ciclo várias contas caem juntas e isso viraria uma enxurrada; o aviso é um resumo curto e o detalhe fica na central de avisos, dentro do app (tocar na notificação abre ela). Contas e faturas já pagas não geram aviso, e `syncReminders` reprograma tudo do zero a cada escrita no banco (o `useEffect` do `StoreProvider`), então quitar uma conta apaga o lembrete dela.
 - **A aba Mês nunca lista gasto de cartão item a item**: cada fatura aparece como uma linha (`Ledger.invoiceItem`), e o detalhe fica na tela da fatura. Por isso `Ledger.listItems` (o que a lista mostra) é diferente de `Ledger.expenseItems` (tudo, usado nos gráficos).
+- **Parcelas de valor próprio:** `entries.installment_amounts` guarda o valor de cada parcela em JSON; `amount_cents` é a soma. Nulo = total dividido igualmente (`entryParcel`).
+- **Compra importada no meio do parcelamento:** `entries.installment_offset` diz quantas parcelas iniciais ficam de fora (a "8/10" entra com offset 7) e `invoice_month` fixa a fatura da 1ª parcela. `import_source` (`csv`/`print`) separa o que veio de importação do que foi digitado.
+- **Reimportação** (`planImport`): uma compra parcelada é reconhecida pela fatura em que começou, pelo número de parcelas e pelo valor, com a descrição só desempatando — o OCR e os bancos escrevem nomes de jeitos diferentes. Valor diferente na mesma parcela ajusta só ela (`parcelsWith`); até 3 centavos é arredondamento e não pede confirmação.
+- **Empréstimos** (`loans`, `loan_prepayments`): parcelas vencem no dia de `first_due` dos meses seguintes. Chaves de pago `l:<contrato>:<parcela>`, `lp:<antecipação>` e `li:<contrato>` (valor liberado como receita). Parcela antecipada some do mês original; a antecipação entra no mês do pagamento como parcela.
+- **Taxa do contrato** (`loanRate`): a taxa interna de retorno — a taxa mensal que faz o valor presente dos pagamentos igualar o valor liberado, contando meses como os bancos (30/360). A **taxa efetiva** faz a mesma conta com o que foi pago de fato nas antecipações. `prepayValue` estima a antecipação trazendo a parcela a valor presente pela taxa do contrato (CDC art. 52 §2º, Resolução CMN 3.516/2007).
+- **OCR** (`parseInvoicePrints`): cada valor na coluna da direita ancora uma compra; a descrição é o texto à esquerda na mesma faixa. A data vem de um cabeçalho ("25 de setembro", "Hoje") ou do começo da linha ("28 OUT", "09/09 LOJA"); data numérica só vale na coluna da esquerda, senão "3/9" (parcela) viraria 3 de setembro. Sem ano na tela, a parcela X implica compra pelo menos X-1 meses antes do vencimento. Linhas de limite, total e vencimento são descartadas (`isCardInfo`). O módulo nativo amplia prints com menos de 900 px de largura antes do OCR.
+- **Bateria de testes do OCR:** prints falsos gerados com gabarito (vários layouts de banco, claro/escuro, 390 a 1080 px, fontes diferentes) rodam no OCR real do aparelho pela tela *Laboratório de OCR* (só na build de desenvolvimento), e o parser é medido contra o gabarito no PC. Resultado atual: 104 de 105 compras exatas, 15 de 16 totais; os três prints reais de referência (Neon, Mercado Pago, Itaú) saem 100% certos.
+- **Bloqueio** (`lock_*` em `settings`): SHA-256 com sal do segredo e do código de recuperação (16 caracteres de um alfabeto sem 0/O/1/I/L, gerado por `expo-crypto`). As chaves `lock_*` ficam fora do backup exportado e restaurar um backup não mexe nelas. Cinco erros seguidos travam por 30 s.
 - O teto de `MAX_SCHEDULED` existe porque o Android limita alarmes pendentes; ficam os vencimentos mais próximos.
 

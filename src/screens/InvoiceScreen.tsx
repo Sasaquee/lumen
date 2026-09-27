@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { colors } from '../theme';
 import {
@@ -23,6 +23,8 @@ export default function InvoiceScreen({ route, navigation }: RootProps<'Invoice'
   const [draft, setDraft] = useState(0);
   const [draftNotes, setDraftNotes] = useState('');
   const card = ledger.card(route.params.cardId);
+  // voltando da importação, a tela vai para a fatura importada
+  useEffect(() => { setMonth(route.params.month); }, [route.params.month]);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: card ? `Fatura · ${card.name}` : 'Fatura' });
@@ -40,6 +42,7 @@ export default function InvoiceScreen({ route, navigation }: RootProps<'Invoice'
   const pending = inv?.pending ?? 0;
   const charged = inv?.charged ?? 0;
   const pendingItems = items.filter((it) => isPendingCharge(it));
+  const importedCount = items.filter((it) => it.entryId != null && ledger.snap.entries.find((e) => e.id === it.entryId)?.import_source).length;
   const committed = ledger.cardCommitted(card.id, currentMonth());
   const available = card.limit_cents ? card.limit_cents - committed : null;
   const payCycle = ledger.invoiceCycle(card, month);
@@ -183,6 +186,17 @@ export default function InvoiceScreen({ route, navigation }: RootProps<'Invoice'
           ) : null}
         </Card>
 
+        <Pressable onPress={() => navigation.navigate('ImportInvoice', { cardId: card.id, month })} style={({ pressed }) => [styles.importBtn, pressed && { opacity: 0.8 }]}>
+          <Icon name="tray-arrow-down" size={22} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <T size={15} weight="semibold">{importedCount ? 'Atualizar com CSV ou print' : 'Importar CSV ou print da fatura'}</T>
+            <T size={12.5} color={colors.muted}>
+              {importedCount ? `${importedCount} lançamentos importados · compara e mostra o que mudou` : 'Os lançamentos e as parcelas entram sozinhos'}
+            </T>
+          </View>
+          <Icon name="chevron-right" color={colors.muted} />
+        </Pressable>
+
         {declared == null ? (
           <View style={styles.hint}>
             <Icon name="information-outline" size={18} color={colors.primary} />
@@ -316,6 +330,10 @@ const styles = StyleSheet.create({
   warn: { flexDirection: 'row', gap: 8, backgroundColor: colors.warningSoft, borderRadius: 12, padding: 10, marginTop: 2 },
   note: { flexDirection: 'row', gap: 8, backgroundColor: colors.surface2, borderRadius: 12, padding: 10, marginTop: 2 },
   hint: { flexDirection: 'row', gap: 10, backgroundColor: colors.primarySoft, borderRadius: 14, padding: 12, marginTop: 12 },
+  importBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, padding: 14, borderRadius: 16,
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.primarySoft,
+  },
   undetailedRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 11 },
   projection: {
     flexDirection: 'row', alignItems: 'center', gap: 14, marginTop: 14,

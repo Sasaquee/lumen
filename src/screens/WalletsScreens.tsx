@@ -1,7 +1,7 @@
 import React, { useLayoutEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { colors, palette } from '../theme';
-import { Button, Card, EmptyState, Field, Icon, Input, ProgressBar, T } from '../components/ui';
+import { Button, Card, EmptyState, Field, Icon, Input, ProgressBar, T, FormScroll } from '../components/ui';
 import type { RootProps } from '../navigation/types';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
@@ -116,7 +116,7 @@ export function WalletFormScreen({ route, navigation }: RootProps<'WalletForm'>)
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} keyboardShouldPersistTaps="handled">
+      <FormScroll contentContainerStyle={{ padding: 16, gap: 20 }}>
         <View style={[styles.visual, { backgroundColor: color, minHeight: 120, justifyContent: 'center' }]}>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
             <Icon name={icon} size={24} color="#fff" />
@@ -167,7 +167,7 @@ export function WalletFormScreen({ route, navigation }: RootProps<'WalletForm'>)
 
         <Button title={existing ? 'Salvar alterações' : 'Adicionar vale'} icon="check" onPress={save} />
         {existing ? <Button title="Excluir vale" icon="trash-can-outline" variant="danger" onPress={remove} /> : null}
-      </ScrollView>
+      </FormScroll>
     </View>
   );
 }

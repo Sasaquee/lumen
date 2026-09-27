@@ -11,6 +11,7 @@ import { Card, Divider, Icon, ListRow, SectionTitle, T } from '../components/ui'
 import { useStore } from '../data/store';
 import * as db from '../data/db';
 import { notifSettings } from '../data/notifications';
+import { LOCK_LABELS, lockConfig, pauseLock, TIMEOUT_OPTIONS } from '../data/lock';
 import { today } from '../utils/dates';
 
 export default function MoreScreen() {
@@ -27,6 +28,7 @@ export default function MoreScreen() {
       if (file.exists) file.delete();
       file.create();
       file.write(JSON.stringify(db.exportData(), null, 2));
+      pauseLock();
       await Sharing.shareAsync(file.uri, { mimeType: 'application/json', dialogTitle: 'Salvar backup do Lumen' });
     } catch (e: any) {
       Alert.alert('Erro ao exportar', String(e?.message ?? e));
@@ -37,6 +39,7 @@ export default function MoreScreen() {
 
   const importBackup = async () => {
     try {
+      pauseLock();
       const res = await DocumentPicker.getDocumentAsync({ type: ['application/json', 'text/plain', '*/*'], copyToCacheDirectory: true });
       if (res.canceled || !res.assets?.[0]) return;
       const text = await new File(res.assets[0].uri).text();
@@ -65,6 +68,7 @@ export default function MoreScreen() {
   const chevron = <Icon name="chevron-right" color={colors.muted} />;
   const cycleSubtitle = `Começa no dia ${ledger.cycleStartDay} · agora ${ledger.cycleRange(ledger.currentCycle())}`;
   const notif = notifSettings(ledger);
+  const lock = lockConfig(s.settings);
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 120 }}>
@@ -78,6 +82,8 @@ export default function MoreScreen() {
         <Divider />
         <ListRow icon="shape-outline" iconColor="#3987E5" title="Categorias" subtitle={`${s.categories.filter((c) => !c.archived).length} categorias`} right={chevron} onPress={() => nav.navigate('Categories')} />
         <Divider />
+        <ListRow icon="bank-outline" iconColor="#D4A017" title="Empréstimos e financiamentos" subtitle={s.loans.length ? `${s.loans.length} ${s.loans.length === 1 ? 'contrato' : 'contratos'}` : 'Parcelas, antecipação e saldo devedor'} right={chevron} onPress={() => nav.navigate('Loans')} />
+        <Divider />
         <ListRow icon="calendar-sync-outline" iconColor="#E8590C" title="Planejamento" subtitle={`${s.recurrings.length} fixos mensais · parcelamentos`} right={chevron} onPress={() => nav.navigate('Plans')} />
       </Card>
 
@@ -90,6 +96,17 @@ export default function MoreScreen() {
           subtitle={ledger.customCycle ? cycleSubtitle : 'Mês civil (dia 1 ao último dia)'}
           right={chevron}
           onPress={() => nav.navigate('Cycle')}
+        />
+        <Divider />
+        <ListRow
+          icon={lock.type ? 'lock' : 'lock-open-variant-outline'}
+          iconColor="#3987E5"
+          title="Bloqueio do app"
+          subtitle={lock.type
+            ? `${LOCK_LABELS[lock.type]}${lock.biometric ? ' + digital' : ''} · ${lock.timeout < 0 ? 'só ao abrir' : `após ${TIMEOUT_OPTIONS.find((o) => o.value === lock.timeout)?.label ?? ''} fora`}`
+            : 'PIN, senha ou padrão'}
+          right={chevron}
+          onPress={() => nav.navigate('LockSettings')}
         />
         <Divider />
         <ListRow
@@ -110,6 +127,12 @@ export default function MoreScreen() {
           onPress={() => nav.navigate('Notifications')}
         />
       </Card>
+
+      {__DEV__ ? (
+        <Card padded={false} style={{ paddingVertical: 4, marginTop: 16 }}>
+          <ListRow icon="flask-outline" iconColor={colors.warning} title="Laboratório de OCR" subtitle="Só na build de desenvolvimento" right={chevron} onPress={() => nav.navigate('OcrLab')} />
+        </Card>
+      ) : null}
 
       <SectionTitle title="Seus dados" />
       <Card padded={false} style={{ paddingVertical: 4 }}>

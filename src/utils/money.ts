@@ -14,6 +14,11 @@ export function formatCompact(cents: number): string {
   return `${Math.round(v)}`;
 }
 
+/** Taxa em decimal como porcentagem: 0.0235 → "2,35%". */
+export function formatRate(r: number): string {
+  return `${(r * 100).toFixed(2).replace('.', ',')}%`;
+}
+
 /** Divide um total em n parcelas; a primeira absorve a diferença de arredondamento. */
 export function installmentAmount(total: number, n: number, index: number): number {
   const base = Math.floor(total / n);

@@ -8,7 +8,9 @@ import { useStore } from '../data/store';
 import type { Recurring } from '../data/types';
 import { METHOD_LABELS } from '../data/types';
 import { monthShort } from '../utils/dates';
-import { formatMoney, installmentAmount } from '../utils/money';
+import { formatMoney } from '../utils/money';
+import { entryParcel } from '../data/engine';
+import { LoanCard } from './LoansScreens';
 
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
@@ -28,8 +30,13 @@ export default function PlansScreen() {
   const plans = ledger.activeInstallments(now);
   const running = plans.filter((p) => !p.finished);
   const finished = plans.filter((p) => p.finished);
-  const committed = running.reduce((s, p) => s + p.remaining, 0);
-  const monthlyInst = running.filter((p) => p.current >= 1).reduce((s, p) => s + installmentAmount(p.entry.amount_cents, p.entry.installments, p.current - 1), 0);
+  const committed = running.reduce((s, p) => s + p.remaining, 0) + ledger.snap.loans.reduce((s, l) => s + ledger.loanSummary(l).remaining, 0);
+  const loans = ledger.snap.loans.map((l) => ledger.loanSummary(l)).filter((s) => !s.finished);
+  const loansMonth = loans.reduce(
+    (s, x) => s + x.parcels.filter((p) => p.status !== 'prepaid' && ledger.cycleOf(p.date) === now).reduce((a, p) => a + p.amount, 0),
+    0,
+  );
+  const monthlyInst = running.reduce((s, p) => s + p.monthly, 0) + loansMonth;
 
   const recRow = (r: Recurring, idx: number) => {
     const cat = ledger.category(r.category_id);
@@ -90,7 +97,13 @@ export default function PlansScreen() {
               <Kpi label="Parcelas neste mês" value={monthlyInst} color={colors.expense} />
               <Kpi label="Total a pagar" value={committed} color={colors.warning} />
             </View>
-            {plans.length === 0 && (
+            {loans.length > 0 && (
+              <>
+                <SectionTitle title="Empréstimos e financiamentos" />
+                {loans.map((s) => <LoanCard key={s.loan.id} s={s} onPress={() => nav.navigate('LoanDetail', { id: s.loan.id })} />)}
+              </>
+            )}
+            {plans.length === 0 && loans.length === 0 && (
               <Card style={{ marginTop: 16 }}>
                 <EmptyState
                   icon="layers-triple-outline" title="Nenhum parcelamento"
@@ -99,7 +112,7 @@ export default function PlansScreen() {
                 />
               </Card>
             )}
-            {running.length > 0 && <SectionTitle title="Em andamento" />}
+            {running.length > 0 && <SectionTitle title="Compras parceladas" />}
             {running.map((pl) => {
               const cat = ledger.category(pl.entry.category_id);
               const card = ledger.card(pl.entry.card_id);
@@ -107,7 +120,7 @@ export default function PlansScreen() {
                 <Card key={pl.entry.id} padded={false} style={{ marginBottom: 10 }}>
                   <ListRow
                     icon={cat?.icon} iconColor={cat?.color} title={pl.entry.description}
-                    subtitle={`${pl.entry.installments}x de ${formatMoney(installmentAmount(pl.entry.amount_cents, pl.entry.installments, 1))}${card ? ' · ' + card.name : ''}`}
+                    subtitle={`${pl.entry.installments}x ${pl.custom ? 'com valores diferentes' : `de ${formatMoney(entryParcel(pl.entry, pl.entry.installments - 1))}`}${card ? ' · ' + card.name : ''}`}
                     onPress={() => nav.navigate('EntryForm', { entryId: pl.entry.id })}
                     right={<T size={15} weight="semibold">{formatMoney(pl.entry.amount_cents)}</T>}
                   />

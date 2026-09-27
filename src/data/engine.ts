@@ -1,6 +1,6 @@
 import type { Snapshot } from './db';
-import type { Card, Category, Entry, InvoiceTotal, Kind, Method, Recurring, Wallet } from './types';
-import { CYCLE_START_DAY, VR } from './types';
+import type { Card, Category, Entry, InvoiceTotal, Kind, Loan, LoanPrepayment, Method, Recurring, Wallet } from './types';
+import { CYCLE_START_DAY, parseAmounts, VR } from './types';
 import {
   addMonths, CALENDAR_CYCLE_DAY, cycleEnd as cycleEndDate, cycleOf as cycleOfDate, cycleRange as cycleRangeLabel,
   cycleStart as cycleStartDate, dateInCycle as dateInCycleOf, dateInMonth, dayOf, daysBetween, fromISODate,
@@ -27,6 +27,8 @@ export interface Item {
   installment?: { index: number; total: number };
   entryId?: number;
   recurringId?: number;
+  /** Parcela ou antecipação de um empréstimo/financiamento. */
+  loanId?: number;
   overridden?: boolean;
   /**
    * Data em que o dinheiro sai: no cartão é o vencimento da fatura, fora dele é a
@@ -131,6 +133,118 @@ export interface MonthData {
     /** Quanto foi gasto pagando com o vale refeição. */
     vrOut: number;
   };
+}
+
+/** Uma parcela do contrato, com a situação dela hoje. */
+export interface LoanParcel {
+  /** 0-based. */
+  index: number;
+  date: string;
+  amount: number;
+  key: string;
+  status: 'paid' | 'open' | 'late' | 'prepaid';
+  /** Antecipação que quitou esta parcela. */
+  prepaymentId?: number;
+}
+
+export interface LoanSummary {
+  loan: Loan;
+  parcels: LoanParcel[];
+  prepayments: (LoanPrepayment & { indices_list: number[]; original: number })[];
+  /** Soma das parcelas do contrato, sem descontos. */
+  contract: number;
+  /** Contrato menos o valor liberado: o custo do dinheiro pelo contrato original. */
+  interest: number;
+  /** O que você já pagou: parcelas pagas mais o valor das antecipações. */
+  paid: number;
+  /** Parcelas que ainda faltam pagar. */
+  remaining: number;
+  remainingCount: number;
+  /** Desconto conseguido antecipando: valor original das parcelas menos o que foi pago. */
+  savings: number;
+  /** Quanto o contrato vai custar de fato: pago + restante. */
+  effectiveTotal: number;
+  next: LoanParcel | undefined;
+  finished: boolean;
+  /** Taxa de juros do contrato original, ao mês e ao ano (0,025 = 2,5%). */
+  rate: LoanRate | null;
+  /** Taxa que você paga de fato, contando as antecipações. Só existe quando houve alguma. */
+  effectiveRate: LoanRate | null;
+}
+
+export interface LoanRate {
+  monthly: number;
+  yearly: number;
+}
+
+/**
+ * Meses entre duas datas como os bancos contam (30/360): meses cheios mais os dias que
+ * sobram sobre 30. Do dia 26 ao dia 26 do mês seguinte é exatamente 1.
+ */
+export function monthsBetween(from: string, to: string): number {
+  return monthDiff(monthOf(from), monthOf(to)) + (dayOf(to) - dayOf(from)) / 30;
+}
+
+/**
+ * Taxa de juros implícita de um contrato: a taxa mensal que faz o valor presente dos
+ * pagamentos, cada um na sua data, igualar o dinheiro liberado. É a taxa interna de
+ * retorno — funciona com parcelas diferentes, carência e antecipações, porque olha só
+ * para quanto saiu e quando. Resolve por bisseção: o valor presente cai sempre que a
+ * taxa sobe, então existe uma única resposta.
+ */
+export function loanRate(principal: number, start: string, flows: { date: string; amount: number }[]): LoanRate | null {
+  if (principal <= 0 || !flows.length) return null;
+  const pts = flows.map((f) => ({ t: Math.max(0, monthsBetween(start, f.date)), a: f.amount }));
+  const npv = (r: number) => pts.reduce((s, p) => s + p.a / Math.pow(1 + r, p.t), 0) - principal;
+  let lo = -0.5;
+  let hi = 5; // 500% ao mês: acima disso não é contrato, é erro de digitação
+  if (npv(lo) < 0 || npv(hi) > 0) return null;
+  for (let i = 0; i < 200 && hi - lo > 1e-12; i++) {
+    const mid = (lo + hi) / 2;
+    if (npv(mid) > 0) lo = mid; else hi = mid;
+  }
+  const monthly = (lo + hi) / 2;
+  return { monthly, yearly: Math.pow(1 + monthly, 12) - 1 };
+}
+
+/** Vencimento da parcela `k` (0-based): mesmo dia da 1ª, nos meses seguintes. */
+export function loanParcelDate(loan: Pick<Loan, 'first_due'>, k: number): string {
+  return dateInMonth(addMonths(monthOf(loan.first_due), k), dayOf(loan.first_due));
+}
+
+export function loanAmounts(loan: Loan): number[] {
+  return parseAmounts(loan.installment_amounts) ?? [];
+}
+
+/**
+ * Quanto custa quitar uma parcela antes do vencimento. Pelo CDC (art. 52, §2º) e pela
+ * Resolução CMN 3.516/2007, antecipar dá direito à redução proporcional dos juros: a
+ * parcela é trazida a valor presente pela taxa do próprio contrato, do dia do pagamento
+ * até o vencimento. O banco pode diferir por centavos (IOF, arredondamento), por isso
+ * é uma estimativa — o valor real vem no boleto de antecipação.
+ */
+export function prepayValue(amount: number, due: string, payDate: string, monthlyRate: number | null | undefined): number {
+  if (!monthlyRate || monthlyRate <= 0 || payDate >= due) return amount;
+  return Math.round(amount / Math.pow(1 + monthlyRate, monthsBetween(payDate, due)));
+}
+
+/** Valor da parcela `k` (0-based) de um lançamento, respeitando parcelas de valor próprio. */
+export function entryParcel(e: Pick<Entry, 'amount_cents' | 'installments' | 'installment_amounts'>, k: number): number {
+  const n = Math.max(1, e.installments);
+  const custom = parseAmounts(e.installment_amounts);
+  if (custom && custom.length === n) return custom[k] ?? 0;
+  return installmentAmount(e.amount_cents, n, k);
+}
+
+/** Primeira parcela que o app conhece (0-based): compras importadas no meio do parcelamento. */
+export function entryOffset(e: Pick<Entry, 'installments' | 'installment_offset'>): number {
+  return Math.min(Math.max(0, e.installment_offset ?? 0), Math.max(1, e.installments) - 1);
+}
+
+/** true quando as parcelas não são todas iguais (dentro do centavo do arredondamento). */
+export function hasCustomParcels(e: Pick<Entry, 'installments' | 'installment_amounts'>): boolean {
+  const custom = parseAmounts(e.installment_amounts);
+  return !!custom && custom.length === Math.max(1, e.installments);
 }
 
 /**
@@ -299,14 +413,14 @@ export class Ledger {
       if (e.kind !== 'expense' || e.method !== 'cartao' || e.card_id !== card.id) continue;
       const n = Math.max(1, e.installments);
       const k = monthDiff(this.entryInvoiceMonth(card, e), invoiceMonth);
-      if (k < 0 || k >= n) continue;
+      if (k < entryOffset(e) || k >= n) continue;
       const key = `e:${e.id}:${k}`;
       out.push({
         key,
         source: n > 1 ? 'installment' : 'entry',
         kind: e.kind,
         description: e.description,
-        amount: installmentAmount(e.amount_cents, n, k),
+        amount: entryParcel(e, k),
         date: e.date,
         categoryId: e.category_id,
         method: e.method,
@@ -404,7 +518,7 @@ export class Ledger {
       if (e.kind === 'expense' && e.method === 'cartao' && this.card(e.card_id)) continue;
       const n = Math.max(1, e.installments);
       const k = monthDiff(this.cycleOf(e.date), cycle);
-      if (k < 0 || k >= n) continue;
+      if (k < entryOffset(e) || k >= n) continue;
       const key = `e:${e.id}:${k}`;
       const itemDate = n > 1 ? this.dateInCycle(cycle, dayOf(e.date)) : e.date;
       out.push({
@@ -412,7 +526,7 @@ export class Ledger {
         source: n > 1 ? 'installment' : 'entry',
         kind: e.kind,
         description: e.description,
-        amount: installmentAmount(e.amount_cents, n, k),
+        amount: entryParcel(e, k),
         date: itemDate,
         dueDate: itemDate,
         categoryId: e.category_id,
@@ -450,7 +564,140 @@ export class Ledger {
         chargeMonth: cycle,
       });
     }
+    out.push(...this.loanItems(cycle));
     return out;
+  }
+
+  // ---------- Empréstimos e financiamentos ----------
+  /** Parcelas quitadas por antecipação, por empréstimo: índice → antecipação. */
+  private prepaidIndex(loanId: number): Map<number, LoanPrepayment> {
+    const out = new Map<number, LoanPrepayment>();
+    for (const p of this.snap.loanPrepayments) {
+      if (p.loan_id !== loanId) continue;
+      for (const i of parseAmounts(p.indices) ?? []) out.set(i, p);
+    }
+    return out;
+  }
+
+  /**
+   * O que os contratos movimentam no ciclo: parcelas que vencem nele (menos as já
+   * antecipadas), antecipações pagas nele e, se pedido, o dinheiro liberado.
+   */
+  private loanItems(cycle: string): Item[] {
+    const out: Item[] = [];
+    for (const loan of this.snap.loans) {
+      const amounts = loanAmounts(loan);
+      const n = amounts.length;
+      const prepaid = this.prepaidIndex(loan.id);
+      for (let k = 0; k < n; k++) {
+        const date = loanParcelDate(loan, k);
+        if (this.cycleOf(date) !== cycle || prepaid.has(k)) continue;
+        const key = `l:${loan.id}:${k}`;
+        out.push({
+          key,
+          source: 'installment',
+          kind: 'expense',
+          description: loan.description,
+          amount: amounts[k],
+          date,
+          dueDate: date,
+          categoryId: loan.category_id,
+          method: loan.method,
+          cardId: null,
+          paid: this.paid.has(key),
+          installment: n > 1 ? { index: k + 1, total: n } : undefined,
+          loanId: loan.id,
+        });
+      }
+      for (const p of this.snap.loanPrepayments) {
+        if (p.loan_id !== loan.id || this.cycleOf(p.date) !== cycle) continue;
+        const idx = (parseAmounts(p.indices) ?? []).map((i) => i + 1);
+        const key = `lp:${p.id}`;
+        out.push({
+          key,
+          source: 'installment',
+          kind: 'expense',
+          description: `${loan.description} · antecipação (${idx.length === 1 ? `parcela ${idx[0]}` : `${idx.length} parcelas`})`,
+          amount: p.amount_cents,
+          date: p.date,
+          dueDate: p.date,
+          categoryId: loan.category_id,
+          method: loan.method,
+          cardId: null,
+          paid: this.paid.has(key),
+          loanId: loan.id,
+        });
+      }
+      if (loan.as_income && this.cycleOf(loan.release_date) === cycle) {
+        const key = `li:${loan.id}`;
+        out.push({
+          key,
+          source: 'entry',
+          kind: 'income',
+          description: `${loan.description} · valor liberado`,
+          amount: loan.principal_cents,
+          date: loan.release_date,
+          dueDate: loan.release_date,
+          categoryId: null,
+          method: 'pix',
+          cardId: null,
+          paid: this.paid.has(key),
+          loanId: loan.id,
+        });
+      }
+    }
+    return out;
+  }
+
+  loan(id: number) {
+    return this.snap.loans.find((l) => l.id === id);
+  }
+
+  /** Situação completa de um contrato: parcelas, pago, restante e economia. */
+  loanSummary(loan: Loan, now = today()): LoanSummary {
+    const amounts = loanAmounts(loan);
+    const prepaid = this.prepaidIndex(loan.id);
+    const parcels: LoanParcel[] = amounts.map((amount, index) => {
+      const key = `l:${loan.id}:${index}`;
+      const date = loanParcelDate(loan, index);
+      const pre = prepaid.get(index);
+      const status: LoanParcel['status'] = pre ? 'prepaid' : this.paid.has(key) ? 'paid' : date < now ? 'late' : 'open';
+      return { index, date, amount, key, status, prepaymentId: pre?.id };
+    });
+    const prepayments = this.snap.loanPrepayments
+      .filter((p) => p.loan_id === loan.id)
+      .map((p) => {
+        const indices_list = parseAmounts(p.indices) ?? [];
+        return { ...p, indices_list, original: indices_list.reduce((s, i) => s + (amounts[i] ?? 0), 0) };
+      });
+    const sum = (list: LoanParcel[]) => list.reduce((s, p) => s + p.amount, 0);
+    const contract = sum(parcels);
+    const open = parcels.filter((p) => p.status === 'open' || p.status === 'late');
+    const prepaidTotal = prepayments.reduce((s, p) => s + p.amount_cents, 0);
+    const paid = sum(parcels.filter((p) => p.status === 'paid')) + prepaidTotal;
+    const remaining = sum(open);
+    const savings = prepayments.reduce((s, p) => s + p.original - p.amount_cents, 0);
+    return {
+      loan,
+      parcels,
+      prepayments,
+      contract,
+      interest: contract - loan.principal_cents,
+      paid,
+      remaining,
+      remainingCount: open.length,
+      savings,
+      effectiveTotal: paid + remaining,
+      next: open[0],
+      finished: open.length === 0 && parcels.length > 0,
+      rate: loanRate(loan.principal_cents, loan.release_date, parcels.map((p) => ({ date: p.date, amount: p.amount }))),
+      effectiveRate: prepayments.length
+        ? loanRate(loan.principal_cents, loan.release_date, [
+          ...parcels.filter((p) => p.status !== 'prepaid').map((p) => ({ date: p.date, amount: p.amount })),
+          ...prepayments.map((p) => ({ date: p.date, amount: p.amount_cents })),
+        ])
+        : null,
+    };
   }
 
   private cache = new Map<string, MonthData>();
@@ -750,10 +997,13 @@ export class Ledger {
         const first = this.entryMonth(e, 0);
         const last = addMonths(first, e.installments - 1);
         const current = Math.min(Math.max(monthDiff(first, month) + 1, 0), e.installments);
-        const remainingCount = e.installments - Math.max(current - 1, 0);
+        const from = Math.max(current - 1, entryOffset(e), 0);
+        const remainingCount = e.installments - from;
         let remaining = 0;
-        for (let k = Math.max(current - 1, 0); k < e.installments; k++) remaining += installmentAmount(e.amount_cents, e.installments, k);
-        return { entry: e, first, last, current, remainingCount, remaining, finished: last < month };
+        for (let k = from; k < e.installments; k++) remaining += entryParcel(e, k);
+        // parcela do mês: a que vence nele, se o app a conhece
+        const monthly = current >= 1 && current - 1 >= entryOffset(e) ? entryParcel(e, current - 1) : 0;
+        return { entry: e, first, last, current, remainingCount, remaining, monthly, custom: hasCustomParcels(e), finished: last < month };
       })
       .sort((a, b) => Number(a.finished) - Number(b.finished) || a.last.localeCompare(b.last));
   }

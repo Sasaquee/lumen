@@ -2,7 +2,7 @@ import React, { useLayoutEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors } from '../theme';
-import { Button, Card, EmptyState, Field, Icon, Input, MoneyInput, Stepper, T } from '../components/ui';
+import { Button, Card, EmptyState, Field, Icon, Input, MoneyInput, Stepper, T, FormScroll } from '../components/ui';
 import type { RootProps } from '../navigation/types';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
@@ -11,7 +11,7 @@ import { currentMonth, formatDate } from '../utils/dates';
 import { formatMoney } from '../utils/money';
 
 export function CardsScreen({ navigation }: RootProps<'Cards'>) {
-  const { ledger } = useStore();
+  const { ledger, refresh } = useStore();
   const cards = ledger.snap.cards.filter((c) => !c.archived);
 
   return (
@@ -80,7 +80,34 @@ export function CardsScreen({ navigation }: RootProps<'Cards'>) {
         );
       })}
       <Button title="Adicionar cartão" icon="plus" variant={cards.length ? 'secondary' : 'primary'} onPress={() => navigation.navigate('CardForm', {})} />
+      {cards.length ? (
+        <Button title="Zerar lançamentos de todos os cartões" icon="eraser" variant="danger" onPress={() => confirmClear(undefined, undefined, refresh)} />
+      ) : null}
     </ScrollView>
+  );
+}
+
+/** Confirma mostrando o que some e só então zera. O cadastro do cartão continua. */
+function confirmClear(cardId: number | undefined, name: string | undefined, refresh: () => void) {
+  const c = db.cardDataCount(cardId);
+  const total = c.entries + c.recurrings + c.totals;
+  const where = name ? `do ${name}` : 'de todos os cartões';
+  if (!total) {
+    Alert.alert('Nada para apagar', `Não há lançamentos ${where}.`);
+    return;
+  }
+  const parts = [
+    c.entries ? `${c.entries} ${c.entries === 1 ? 'compra' : 'compras'} (com todas as parcelas)` : null,
+    c.recurrings ? `${c.recurrings} ${c.recurrings === 1 ? 'fixo mensal' : 'fixos mensais'}` : null,
+    c.totals ? `${c.totals} ${c.totals === 1 ? 'total de fatura informado' : 'totais de fatura informados'}` : null,
+  ].filter(Boolean);
+  Alert.alert(
+    `Apagar lançamentos ${where}?`,
+    `Vão ser apagados:\n\n• ${parts.join('\n• ')}\n\nO cadastro ${name ? 'do cartão' : 'dos cartões'} (fechamento, vencimento e limite) continua. Isso não pode ser desfeito — se quiser, exporte um backup antes em Mais.`,
+    [
+      { text: 'Cancelar', style: 'cancel' },
+      { text: 'Apagar', style: 'destructive', onPress: () => { db.clearCardData(cardId); refresh(); } },
+    ],
   );
 }
 
@@ -114,7 +141,7 @@ export function CardFormScreen({ route, navigation }: RootProps<'CardForm'>) {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <ScrollView contentContainerStyle={{ padding: 16, gap: 20 }} keyboardShouldPersistTaps="handled">
+      <FormScroll contentContainerStyle={{ padding: 16, gap: 20 }}>
         <View style={[styles.cardVisual, { backgroundColor: color, height: 150 }]}>
           <T size={18} weight="bold" color="#fff">{name || 'Nome do cartão'}</T>
           <T size={12.5} color="rgba(255,255,255,0.85)">Fecha dia {closing} · vence dia {due}</T>
@@ -140,8 +167,9 @@ export function CardFormScreen({ route, navigation }: RootProps<'CardForm'>) {
         <Field label="Limite (opcional)">
           <MoneyInput value={limit} onChange={setLimit} />
         </Field>
+        {existing && <Button title="Apagar lançamentos deste cartão" icon="eraser" variant="secondary" onPress={() => confirmClear(existing.id, existing.name, refresh)} />}
         {existing && <Button title="Excluir cartão" icon="trash-can-outline" variant="danger" onPress={remove} />}
-      </ScrollView>
+      </FormScroll>
       <View style={{ padding: 16, paddingBottom: insets.bottom + 12, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border }}>
         <Button title="Salvar" icon="check" onPress={save} />
       </View>
