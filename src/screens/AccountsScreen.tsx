@@ -6,6 +6,7 @@ import { colors } from '../theme';
 import { Button, Card, Checkbox, Divider, EmptyState, Icon, MonthSwitcher, ProgressBar, SectionTitle, T } from '../components/ui';
 import { LoanMonthsAhead, PrepaySheet } from './LoansScreens';
 import { ItemRow } from '../components/ItemRow';
+import { CardFixedList, cardFixedItems } from '../components/CardFixedList';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
 import type { Item, LoanSummary } from '../data/engine';
@@ -41,6 +42,9 @@ export default function AccountsScreen() {
   const inv = tally(data.invoices.filter((i) => i.total > 0).map((i) => ({ amount: i.total, paid: i.paid })));
   const lo = tally(loanItems);
   const fx = tally(fixed);
+  // fixos no cartão: aparecem na lista, mas o valor já está na fatura (não soma de novo)
+  const cardFixed = cardFixedItems(data.invoices);
+  const cardFixedTotal = cardFixed.reduce((s, i) => s + i.amount, 0);
   const all = tally([
     { amount: inv.paid, paid: true }, { amount: inv.left, paid: false },
     { amount: lo.paid, paid: true }, { amount: lo.left, paid: false },
@@ -166,16 +170,27 @@ export default function AccountsScreen() {
               </View>
             ))}
           </Card>
-        ) : (
+        ) : null}
+        {cardFixed.length ? (
+          <>
+            <View style={styles.subTitle}>
+              <Icon name="credit-card-outline" size={15} color={colors.textSecondary} />
+              <T size={12.5} weight="semibold" color={colors.textSecondary} style={{ flex: 1 }}>No cartão · {formatMoney(cardFixedTotal)}</T>
+              <T size={11.5} color={colors.muted}>já somado nas faturas</T>
+            </View>
+            <CardFixedList items={cardFixed} />
+          </>
+        ) : null}
+        {!fixed.length && !cardFixed.length ? (
           <Card>
             <EmptyState
               icon="repeat"
               title="Nenhuma conta fixa"
-              text="Aluguel, internet, assinaturas: cadastre como fixo mensal e ele aparece aqui todo mês. Assinatura no cartão fica dentro da fatura."
+              text="Aluguel, internet, assinaturas: cadastre como fixo mensal e ele aparece aqui todo mês, no cartão ou fora dele."
               action={<Button title="Adicionar conta fixa" icon="plus" onPress={() => nav.navigate('EntryForm', { kind: 'expense', mode: 'recurring' })} />}
             />
           </Card>
-        )}
+        ) : null}
 
         {/* ---------------- empréstimos e financiamentos */}
         <SectionTitle
@@ -292,6 +307,7 @@ function Action({ icon, label, onPress }: { icon: string; label: string; onPress
 }
 
 const styles = StyleSheet.create({
+  subTitle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 8, paddingHorizontal: 4 },
   statLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   allPaid: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, backgroundColor: colors.primarySoft, borderRadius: 10, padding: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },

@@ -8,6 +8,7 @@ import {
   SectionTitle, Segmented, Sheet, SheetAction, T, tap,
 } from '../components/ui';
 import { ItemRow } from '../components/ItemRow';
+import { CardFixedList, cardFixedItems } from '../components/CardFixedList';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
 import type { Item } from '../data/engine';
@@ -97,6 +98,8 @@ export default function MonthScreen() {
   const loanItems = expenses.filter((i) => i.source !== 'recurring' && i.loanId != null);
   const others = expenses.filter((i) => i.source !== 'recurring' && i.loanId == null);
   const invoices = filter === 'income' || flat ? [] : data.invoices.filter((i) => keepStatus(i.paid));
+  // assinaturas e fixos no cartão: listados à parte, mas o valor já está na linha da fatura
+  const cardFixed = cardFixedItems(invoices);
   const flatList = flat ? sortItems([...expenses, ...incomes], sort) : [];
   const flatTotal = flatList.reduce((s, i) => s + (i.kind === 'income' ? 0 : i.amount), 0);
   const flatHasIncome = flatList.some((i) => i.kind === 'income');
@@ -233,6 +236,16 @@ export default function MonthScreen() {
           <Section title="Contas fixas" total={fixed.reduce((s, i) => s + i.amount, 0)}>
             {fixed.map((i, idx) => <Row key={i.key} item={i} month={month} divider={idx > 0} />)}
           </Section>
+        ) : null}
+
+        {!flat && cardFixed.length > 0 ? (
+          <>
+            <SectionTitle
+              title="Fixos no cartão"
+              right={<T size={12.5} color={colors.muted}>{formatMoney(cardFixed.reduce((s, i) => s + i.amount, 0))} · já nas faturas</T>}
+            />
+            <CardFixedList items={cardFixed} />
+          </>
         ) : null}
 
         {!flat && loanItems.length > 0 ? (

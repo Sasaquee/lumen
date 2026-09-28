@@ -210,7 +210,9 @@ Tudo que sai do bolso no mês num lugar só. No topo, **quanto falta pagar** —
 marca como pago sai da conta, então o número zera quando o mês está quitado — e quanto já
 foi pago, com o que falta separado em faturas, empréstimos e fixos. Embaixo, a fatura de
 cada cartão com o limite restante e atalhos para ver, importar ou lançar uma compra; as
-contas fixas e assinaturas fora do cartão; a parcela de cada empréstimo com o botão de
+contas fixas e assinaturas — as fora do cartão com o botão de pagar, e as do cartão
+listadas com a fatura em que caem (pelo fechamento de cada cartão) e se já foram cobradas
+ou ainda estão previstas, sem somar de novo o que já está na fatura; a parcela de cada empréstimo com o botão de
 pagar e de antecipar; e as parcelas dos próximos meses. O **+** abre um menu com
 lançamento, compra no cartão, empréstimo, financiamento e importar fatura (segurar o +
 vai direto para o lançamento). A tabela passou para *Mais*.
