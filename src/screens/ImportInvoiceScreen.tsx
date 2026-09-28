@@ -20,6 +20,11 @@ import { formatDate, formatDateLong, fromISODate, monthLabel, toISODate, today }
 import { formatMoney } from '../utils/money';
 import { recognize } from '../../modules/lumen-ocr';
 
+/** Arquivo escolhido, esperando a pessoa confirmar de qual fatura ele é. */
+type Pending =
+  | { source: 'csv'; parsed: ParsedInvoice; fileLabel: string }
+  | { source: 'print'; pages: OcrPage[]; fileLabel: string };
+
 interface Loaded {
   source: ImportSource;
   parsed: ParsedInvoice;
@@ -41,6 +46,8 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
   // correções da pessoa no que foi lido (valor, data, parcela): entram antes da comparação
   const [lineEdits, setLineEdits] = useState<Record<number, Partial<ParsedLine>>>({});
   const [ocrNotice, setOcrNotice] = useState(true);
+  const [pending, setPending] = useState<Pending | null>(null);
+  const [askMonth, setAskMonth] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({ title: card ? `Importar fatura · ${card.name}` : 'Importar fatura' });
@@ -99,7 +106,8 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
       setBusy('Lendo o CSV...');
       const asset = res.assets[0];
       const text = await new File(asset.uri).text();
-      load({ source: 'csv', parsed: parseNubankCsv(text, asset.name), fileLabel: asset.name });
+      setAskMonth(false);
+      setPending({ source: 'csv', parsed: parseNubankCsv(text, asset.name), fileLabel: asset.name });
     } catch (e: any) {
       Alert.alert('Não consegui ler o arquivo', String(e?.message ?? e));
     } finally {
@@ -123,13 +131,22 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
         setBusy(res.assets.length > 1 ? `Lendo o print ${i + 1} de ${res.assets.length}...` : 'Lendo o print...');
         pages.push(await recognize(res.assets[i].uri));
       }
-      const parsed = parseInvoicePrints(pages, month, today());
-      load({ source: 'print', parsed, fileLabel: `${pages.length} ${pages.length === 1 ? 'print' : 'prints'}` });
+      setAskMonth(false);
+      setPending({ source: 'print', pages, fileLabel: `${pages.length} ${pages.length === 1 ? 'print' : 'prints'}` });
     } catch (e: any) {
       Alert.alert('Não consegui ler os prints', String(e?.message ?? e));
     } finally {
       setBusy(null);
     }
+  };
+
+  /** A pessoa confirmou o mês: só agora o material vira prévia (o ano das datas do print depende dele). */
+  const confirmMonth = () => {
+    if (!pending) return;
+    const p = pending;
+    setPending(null);
+    if (p.source === 'csv') load(p);
+    else load({ source: 'print', parsed: parseInvoicePrints(p.pages, month, today()), fileLabel: p.fileLabel });
   };
 
   const apply = () => {
@@ -174,11 +191,6 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
 
   const editingProposal = proposals.find((p) => p.id === editing);
 
-  /** Parcela corrigida à mão; 1 de 1 (ou inválida) vira compra à vista. */
-  const setInstallment = (p: Proposal, index: number, totalN: number) => {
-    const valid = totalN >= 2 && index >= 1 && index <= totalN;
-    setLineEdit(p.id, { installment: valid ? { index, total: totalN } : totalN >= 2 ? { index: Math.min(Math.max(index, 1), totalN), total: totalN } : undefined });
-  };
   const expenseCats = ledger.snap.categories.filter((c) => c.kind === 'expense' && !c.archived);
 
   return (
@@ -389,6 +401,47 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
         </View>
       ) : null}
 
+      <Sheet
+        visible={!!pending}
+        onClose={() => setPending(null)}
+        title={askMonth ? 'Qual é o mês da fatura?' : `É a fatura de ${monthLabel(payCycle)}?`}
+      >
+        <View style={{ paddingHorizontal: 8, gap: 14 }}>
+          {!askMonth ? (
+            <>
+              <T size={13.5} color={colors.textSecondary} style={{ lineHeight: 20 }}>
+                {pending?.source === 'print' && pending.pages.length > 1 ? 'Esses prints vão' : pending?.source === 'print' ? 'Esse print vai' : 'Esse arquivo vai'}{' '}
+                para a fatura do {card.name} que vence em {formatDate(dueDate)}. Se for de outro mês, os lançamentos caem no mês errado.
+              </T>
+              {pending?.source === 'csv' && pending.parsed.dueMonth && pending.parsed.dueMonth !== month ? (
+                <View style={styles.warn}>
+                  <Icon name="calendar-alert" size={18} color={colors.warning} />
+                  <T size={12.5} color={colors.textSecondary} style={{ flex: 1 }}>
+                    O nome do arquivo indica a fatura de {monthLabel(ledger.invoiceCycle(card, pending.parsed.dueMonth))}.
+                  </T>
+                </View>
+              ) : null}
+              <Button title={`Sim, é de ${monthLabel(payCycle)}`} icon="check" onPress={confirmMonth} />
+              <Button title="Não, é de outro mês" variant="secondary" onPress={() => setAskMonth(true)} />
+            </>
+          ) : (
+            <>
+              <T size={13.5} color={colors.textSecondary} style={{ lineHeight: 20 }}>
+                Escolha o mês nas setas. Da próxima vez, dá para escolher antes de anexar: é o seletor de mês no
+                topo da tela de importação (e o mês que estava aberto na tela da fatura).
+              </T>
+              <MonthSwitcher
+                month={payCycle}
+                onChange={(c) => setMonth(ledger.invoiceMonthOfCycle(card, c))}
+                hint={`Fatura que vence ${formatDate(dueDate)}`}
+              />
+              <Button title={`Usar ${monthLabel(payCycle)}`} icon="check" onPress={confirmMonth} />
+              <Button title="Cancelar" variant="ghost" onPress={() => setPending(null)} />
+            </>
+          )}
+        </View>
+      </Sheet>
+
       <Sheet visible={!!editingProposal} onClose={() => setEditing(null)} title="Lançamento">
         {editingProposal ? (
           <View style={{ paddingHorizontal: 8, gap: 14 }}>
@@ -413,26 +466,12 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
                 </Pressable>
               </Field>
             </View>
-            <Field label="Parcela" hint="Deixe 1 de 1 para compra à vista.">
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <Input
-                  style={{ width: 64, textAlign: 'center' }}
-                  keyboardType="number-pad"
-                  selectTextOnFocus
-                  maxLength={3}
-                  value={String(editingProposal.line.installment?.index ?? 1)}
-                  onChangeText={(t) => setInstallment(editingProposal, Number(t.replace(/\D/g, '')) || 1, editingProposal.line.installment?.total ?? 1)}
-                />
-                <T color={colors.muted}>de</T>
-                <Input
-                  style={{ width: 64, textAlign: 'center' }}
-                  keyboardType="number-pad"
-                  selectTextOnFocus
-                  maxLength={3}
-                  value={String(editingProposal.line.installment?.total ?? 1)}
-                  onChangeText={(t) => setInstallment(editingProposal, editingProposal.line.installment?.index ?? 1, Number(t.replace(/\D/g, '')) || 1)}
-                />
-              </View>
+            <Field label="Parcela" hint="Deixe 1 de 1 (ou vazio) para compra à vista.">
+              <InstallmentInput
+                key={editingProposal.id}
+                value={editingProposal.line.installment}
+                onChange={(inst) => setLineEdit(editingProposal.id, { installment: inst })}
+              />
             </Field>
             <Field label="Descrição">
               <Input value={editingProposal.description} onChangeText={(t) => setEdit(editingProposal.id, { description: t })} />
@@ -461,6 +500,51 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
           </View>
         ) : null}
       </Sheet>
+    </View>
+  );
+}
+
+/**
+ * "X de Y" editável. O texto é da pessoa enquanto ela digita — dá para apagar tudo e
+ * escrever de novo; a parcela só muda quando os dois números fazem sentido, e vazio ou
+ * "1 de 1" é compra à vista. Ao sair do campo, o que não fizer sentido volta ao valor atual.
+ */
+function InstallmentInput({ value, onChange }: {
+  value: { index: number; total: number } | undefined;
+  onChange: (v: { index: number; total: number } | undefined) => void;
+}) {
+  const [index, setIndex] = useState(value ? String(value.index) : '1');
+  const [total, setTotal] = useState(value ? String(value.total) : '1');
+
+  const commit = (iText: string, tText: string) => {
+    const i = Number(iText);
+    const t = Number(tText);
+    if ((!iText && !tText) || (i === 1 && t === 1) || (!iText && t === 1) || (i === 1 && !tText)) onChange(undefined);
+    else if (t >= 2 && t <= 120 && i >= 1 && i <= t) onChange({ index: i, total: t });
+  };
+  const change = (which: 'i' | 't') => (text: string) => {
+    const clean = text.replace(/\D/g, '');
+    const iText = which === 'i' ? clean : index;
+    const tText = which === 't' ? clean : total;
+    if (which === 'i') setIndex(clean); else setTotal(clean);
+    commit(iText, tText);
+  };
+  const settle = () => {
+    setIndex(value ? String(value.index) : '1');
+    setTotal(value ? String(value.total) : '1');
+  };
+  const i = Number(index);
+  const t = Number(total);
+  const invalid = !!index && !!total && !(t === 1 && i === 1) && !(t >= 2 && i >= 1 && i <= t);
+
+  return (
+    <View style={{ gap: 6 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Input style={{ width: 64, textAlign: 'center' }} keyboardType="number-pad" selectTextOnFocus maxLength={3} value={index} onChangeText={change('i')} onBlur={settle} />
+        <T color={colors.muted}>de</T>
+        <Input style={{ width: 64, textAlign: 'center' }} keyboardType="number-pad" selectTextOnFocus maxLength={3} value={total} onChangeText={change('t')} onBlur={settle} />
+      </View>
+      {invalid ? <T size={12} color={colors.warning}>A parcela precisa ser de 1 até o total.</T> : null}
     </View>
   );
 }

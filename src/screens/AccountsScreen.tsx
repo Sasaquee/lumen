@@ -4,17 +4,28 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../theme';
 import { Button, Card, Checkbox, Divider, EmptyState, Icon, MonthSwitcher, ProgressBar, SectionTitle, T } from '../components/ui';
-import { LoanMonthsAhead, loanCycleTotal, PrepaySheet } from './LoansScreens';
+import { LoanMonthsAhead, PrepaySheet } from './LoansScreens';
+import { ItemRow } from '../components/ItemRow';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
-import type { LoanSummary } from '../data/engine';
+import type { Item, LoanSummary } from '../data/engine';
+import { VR } from '../data/types';
 import { addMonths, currentMonth, formatDate, monthShort, today } from '../utils/dates';
 import { formatMoney } from '../utils/money';
 
+/** Quanto falta e quanto já foi pago num grupo de contas. */
+interface Tally { total: number; paid: number; left: number }
+const tally = (list: { amount: number; paid: boolean }[]): Tally => {
+  const total = list.reduce((s, x) => s + x.amount, 0);
+  const paid = list.filter((x) => x.paid).reduce((s, x) => s + x.amount, 0);
+  return { total, paid, left: total - paid };
+};
+
 /**
- * Cartões e contratos do mês selecionado num lugar só: fatura de cada cartão, parcela de
- * cada empréstimo, e o botão de pagar ou antecipar ali mesmo. O mês segue o ciclo do
- * usuário, como as outras abas.
+ * Tudo que sai do bolso no mês selecionado: faturas, parcelas de contratos e contas
+ * fixas, com o botão de pagar ali mesmo. Os números de cima mostram o que FALTA pagar —
+ * o que foi marcado como pago sai da conta, e o total já pago aparece à parte. O mês
+ * segue o ciclo do usuário, como as outras abas.
  */
 export default function AccountsScreen() {
   const insets = useSafeAreaInsets();
@@ -24,9 +35,17 @@ export default function AccountsScreen() {
 
   const data = ledger.month(month);
   const cards = ledger.snap.cards.filter((c) => !c.archived);
-  const invoicesTotal = data.invoices.reduce((s, i) => s + i.total, 0);
   const loanItems = ledger.loanItems(month).filter((i) => i.kind === 'expense');
-  const loansTotal = loanCycleTotal(loanItems);
+  // fixos fora do cartão (os do cartão já estão na fatura); vale se paga sozinho e fica de fora
+  const fixed: Item[] = data.expenses.filter((i) => i.source === 'recurring' && i.method !== VR);
+  const inv = tally(data.invoices.filter((i) => i.total > 0).map((i) => ({ amount: i.total, paid: i.paid })));
+  const lo = tally(loanItems);
+  const fx = tally(fixed);
+  const all = tally([
+    { amount: inv.paid, paid: true }, { amount: inv.left, paid: false },
+    { amount: lo.paid, paid: true }, { amount: lo.left, paid: false },
+    { amount: fx.paid, paid: true }, { amount: fx.left, paid: false },
+  ]);
   const summaries = ledger.snap.loans.map((l) => ledger.loanSummary(l));
   // contratos com algo neste mês, mais os que ainda correm
   const loans = summaries.filter((s) => !s.finished || loanItems.some((i) => i.loanId === s.loan.id));
@@ -40,22 +59,34 @@ export default function AccountsScreen() {
         <T size={24} weight="extrabold" style={{ letterSpacing: -0.5, paddingHorizontal: 2, marginBottom: 12 }}>Contas</T>
         <MonthSwitcher month={month} onChange={setMonth} hint={ledger.customCycle ? ledger.cycleRange(month) : undefined} />
 
-        <View style={{ flexDirection: 'row', gap: 10, marginTop: 12 }}>
-          <Card style={{ flex: 1, gap: 4 }}>
-            <View style={styles.statLabel}>
-              <Icon name="credit-card-outline" size={15} color={colors.textSecondary} />
-              <T size={12.5} color={colors.muted}>Faturas em {short}</T>
+        <Card style={{ marginTop: 12, padding: 18, gap: 4 }}>
+          <T size={13} color={colors.textSecondary}>Falta pagar em {short}</T>
+          <T size={32} weight="extrabold" color={all.left > 0 ? colors.warning : colors.primary} style={{ letterSpacing: -1 }} numberOfLines={1} adjustsFontSizeToFit>
+            {formatMoney(all.left)}
+          </T>
+          <View style={{ marginTop: 8, gap: 6 }}>
+            <ProgressBar value={all.total ? all.paid / all.total : 0} />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <T size={12.5} color={colors.primary}>Já pago: {formatMoney(all.paid)}</T>
+              <T size={12.5} color={colors.muted}>Total do mês: {formatMoney(all.total)}</T>
             </View>
-            <T size={18} weight="bold" numberOfLines={1} adjustsFontSizeToFit>{formatMoney(invoicesTotal)}</T>
-          </Card>
-          <Card style={{ flex: 1, gap: 4 }}>
-            <View style={styles.statLabel}>
-              <Icon name="bank-outline" size={15} color={colors.textSecondary} />
-              <T size={12.5} color={colors.muted}>Parcelas em {short}</T>
+          </View>
+          {all.total > 0 && all.left === 0 ? (
+            <View style={styles.allPaid}>
+              <Icon name="check-circle" size={16} color={colors.primary} />
+              <T size={12.5} color={colors.textSecondary}>Tudo de {short} está pago.</T>
             </View>
-            <T size={18} weight="bold" numberOfLines={1} adjustsFontSizeToFit>{formatMoney(loansTotal)}</T>
-          </Card>
+          ) : null}
+        </Card>
+
+        <View style={{ flexDirection: 'row', gap: 8, marginTop: 10 }}>
+          <Kpi icon="credit-card-outline" label="Faturas" t={inv} />
+          <Kpi icon="bank-outline" label="Empréstimos" t={lo} />
+          <Kpi icon="repeat" label="Fixos" t={fx} />
         </View>
+        <T size={11.5} color={colors.muted} style={{ marginTop: 6, paddingHorizontal: 4 }}>
+          Mostra o que falta pagar em {short}{ledger.customCycle ? ` (${ledger.cycleRange(month)})` : ''}. Marcou como pago, sai da conta.
+        </T>
 
         {/* ---------------- cartões */}
         <SectionTitle
@@ -118,6 +149,31 @@ export default function AccountsScreen() {
                 </View>
               );
             })}
+          </Card>
+        )}
+
+        {/* ---------------- contas fixas e assinaturas */}
+        <SectionTitle
+          title="Contas fixas e assinaturas"
+          right={<T size={13} color={colors.textSecondary}>{fx.left > 0 ? `falta ${formatMoney(fx.left)}` : fx.total ? 'tudo pago' : ''}</T>}
+        />
+        {fixed.length ? (
+          <Card padded={false} style={{ paddingVertical: 4 }}>
+            {fixed.map((it, i) => (
+              <View key={it.key}>
+                {i > 0 && <Divider />}
+                <ItemRow item={it} month={month} />
+              </View>
+            ))}
+          </Card>
+        ) : (
+          <Card>
+            <EmptyState
+              icon="repeat"
+              title="Nenhuma conta fixa"
+              text="Aluguel, internet, assinaturas: cadastre como fixo mensal e ele aparece aqui todo mês. Assinatura no cartão fica dentro da fatura."
+              action={<Button title="Adicionar conta fixa" icon="plus" onPress={() => nav.navigate('EntryForm', { kind: 'expense', mode: 'recurring' })} />}
+            />
           </Card>
         )}
 
@@ -203,6 +259,20 @@ export default function AccountsScreen() {
   );
 }
 
+function Kpi({ icon, label, t }: { icon: string; label: string; t: Tally }) {
+  const done = t.total > 0 && t.left === 0;
+  return (
+    <Card style={{ flex: 1, padding: 12, gap: 4 }}>
+      <View style={styles.statLabel}>
+        <Icon name={done ? 'check-circle' : icon} size={15} color={done ? colors.primary : colors.textSecondary} />
+        <T size={12} color={colors.muted}>{label}</T>
+      </View>
+      <T size={15} weight="bold" color={done ? colors.primary : colors.text} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(t.left)}</T>
+      <T size={11} color={colors.muted} numberOfLines={1}>{done ? 'pago' : t.total ? `de ${formatMoney(t.total)}` : 'nada no mês'}</T>
+    </Card>
+  );
+}
+
 function Link({ label, onPress }: { label: string; onPress: () => void }) {
   return (
     <Pressable onPress={onPress} hitSlop={8} style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}>
@@ -223,6 +293,7 @@ function Action({ icon, label, onPress }: { icon: string; label: string; onPress
 
 const styles = StyleSheet.create({
   statLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  allPaid: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, backgroundColor: colors.primarySoft, borderRadius: 10, padding: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },
   cardChip: { width: 36, height: 36, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   limit: { paddingHorizontal: 14, gap: 5, marginTop: -4, marginBottom: 8 },

@@ -99,6 +99,9 @@ de valor — e pergunta antes de substituir. Diferença de centavos na mesma par
 arredondamento do banco e só ajusta aquela parcela. Fechamento, vencimento e limite do
 cartão **nunca** vêm do arquivo: vêm do cadastro do cartão.
 
+Depois de escolher o arquivo ou os prints, o app pergunta se é a fatura do mês
+selecionado; se não for, dá para trocar ali mesmo antes de ver a prévia.
+
 A tela *Como funciona e dicas* traz o modelo de CSV para baixar e dicas para um print que
 o app lê bem.
 
@@ -203,9 +206,12 @@ tracejado é o previsto.
 
 ### Aba Contas
 
-Cartões e contratos do mês num lugar só: a fatura de cada cartão com o limite restante e
-atalhos para ver, importar ou lançar uma compra; a parcela de cada empréstimo com o botão
-de pagar e de antecipar; e as parcelas dos próximos meses. O **+** abre um menu com
+Tudo que sai do bolso no mês num lugar só. No topo, **quanto falta pagar** — o que você
+marca como pago sai da conta, então o número zera quando o mês está quitado — e quanto já
+foi pago, com o que falta separado em faturas, empréstimos e fixos. Embaixo, a fatura de
+cada cartão com o limite restante e atalhos para ver, importar ou lançar uma compra; as
+contas fixas e assinaturas fora do cartão; a parcela de cada empréstimo com o botão de
+pagar e de antecipar; e as parcelas dos próximos meses. O **+** abre um menu com
 lançamento, compra no cartão, empréstimo, financiamento e importar fatura (segurar o +
 vai direto para o lançamento). A tabela passou para *Mais*.
 
