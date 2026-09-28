@@ -6,7 +6,7 @@ import { colors } from '../theme';
 import { Button, Card, Checkbox, Divider, EmptyState, Icon, MonthSwitcher, ProgressBar, SectionTitle, T } from '../components/ui';
 import { LoanMonthsAhead, PrepaySheet } from './LoansScreens';
 import { ItemRow } from '../components/ItemRow';
-import { CardFixedList, cardFixedItems } from '../components/CardFixedList';
+import { CardFixedRow, cardFixedItems } from '../components/CardFixedList';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
 import type { Item, LoanSummary } from '../data/engine';
@@ -161,25 +161,23 @@ export default function AccountsScreen() {
           title="Contas fixas e assinaturas"
           right={<T size={13} color={colors.textSecondary}>{fx.left > 0 ? `falta ${formatMoney(fx.left)}` : fx.total ? 'tudo pago' : ''}</T>}
         />
-        {fixed.length ? (
+        {fixed.length || cardFixed.length ? (
           <Card padded={false} style={{ paddingVertical: 4 }}>
-            {fixed.map((it, i) => (
+            {[...fixed, ...cardFixed].sort((a, b) => a.date.localeCompare(b.date)).map((it, i) => (
               <View key={it.key}>
                 {i > 0 && <Divider />}
-                <ItemRow item={it} month={month} />
+                {it.cardId != null ? <CardFixedRow item={it} /> : <ItemRow item={it} month={month} />}
               </View>
             ))}
+            {cardFixed.length ? (
+              <View style={styles.cardNote}>
+                <Icon name="credit-card-outline" size={14} color={colors.muted} />
+                <T size={11.5} color={colors.muted} style={{ flex: 1 }}>
+                  {formatMoney(cardFixedTotal)} no cartão: já somados nas faturas, pagos junto com elas.
+                </T>
+              </View>
+            ) : null}
           </Card>
-        ) : null}
-        {cardFixed.length ? (
-          <>
-            <View style={styles.subTitle}>
-              <Icon name="credit-card-outline" size={15} color={colors.textSecondary} />
-              <T size={12.5} weight="semibold" color={colors.textSecondary} style={{ flex: 1 }}>No cartão · {formatMoney(cardFixedTotal)}</T>
-              <T size={11.5} color={colors.muted}>já somado nas faturas</T>
-            </View>
-            <CardFixedList items={cardFixed} />
-          </>
         ) : null}
         {!fixed.length && !cardFixed.length ? (
           <Card>
@@ -307,7 +305,7 @@ function Action({ icon, label, onPress }: { icon: string; label: string; onPress
 }
 
 const styles = StyleSheet.create({
-  subTitle: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, marginBottom: 8, paddingHorizontal: 4 },
+  cardNote: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
   statLabel: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   allPaid: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 8, backgroundColor: colors.primarySoft, borderRadius: 10, padding: 8 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 12 },

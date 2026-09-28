@@ -8,7 +8,7 @@ import {
   SectionTitle, Segmented, Sheet, SheetAction, T, tap,
 } from '../components/ui';
 import { ItemRow } from '../components/ItemRow';
-import { CardFixedList, cardFixedItems } from '../components/CardFixedList';
+import { pendingCardFixed } from '../components/CardFixedList';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
 import type { Item } from '../data/engine';
@@ -98,8 +98,8 @@ export default function MonthScreen() {
   const loanItems = expenses.filter((i) => i.source !== 'recurring' && i.loanId != null);
   const others = expenses.filter((i) => i.source !== 'recurring' && i.loanId == null);
   const invoices = filter === 'income' || flat ? [] : data.invoices.filter((i) => keepStatus(i.paid));
-  // assinaturas e fixos no cartão: listados à parte, mas o valor já está na linha da fatura
-  const cardFixed = cardFixedItems(invoices);
+  // fixo do cartão que o banco ainda não cobrou: já está no total, mostrado à parte como previsto
+  const previsto = pendingCardFixed(data.invoices);
   const flatList = flat ? sortItems([...expenses, ...incomes], sort) : [];
   const flatTotal = flatList.reduce((s, i) => s + (i.kind === 'income' ? 0 : i.amount), 0);
   const flatHasIncome = flatList.some((i) => i.kind === 'income');
@@ -113,7 +113,7 @@ export default function MonthScreen() {
         <MonthSwitcher month={month} onChange={setMonth} hint={ledger.customCycle ? ledger.cycleRange(month) : undefined} />
         <View style={styles.summary}>
           <Summary label="Receitas" value={t.income} color={colors.income} />
-          <Summary label="Despesas" value={t.expense} color={colors.expense} />
+          <Summary label="Despesas" value={t.expense} color={colors.expense} sub={previsto > 0 ? `inclui ${formatMoney(previsto)} previsto` : undefined} />
           <Summary label="Sobra" value={t.balance} color={t.balance >= 0 ? colors.primary : colors.danger} bold />
         </View>
         <Segmented
@@ -209,6 +209,11 @@ export default function MonthScreen() {
         {invoices.length > 0 ? (
           <>
             <SectionTitle title="Faturas de cartão" right={<T size={13} color={colors.textSecondary}>{formatMoney(invoices.reduce((s, i) => s + i.total, 0))}</T>} />
+            {invoices.some((i) => i.pending > 0) ? (
+              <T size={11.5} color={colors.muted} style={{ marginTop: -4, marginBottom: 8, paddingHorizontal: 4 }}>
+                Previsto: assinaturas e fixos que o banco ainda não cobrou, mas vão cair nesta fatura pelo fechamento do cartão. Já estão no total.
+              </T>
+            ) : null}
             <Card padded={false} style={{ paddingVertical: 4 }}>
               {invoices.map((inv, idx) => (
                 <View key={inv.key}>
@@ -223,7 +228,10 @@ export default function MonthScreen() {
                           : `${inv.items.length} ${inv.items.length === 1 ? 'item' : 'itens'}`}
                       </T>
                     </View>
-                    <T size={15} weight="semibold">{formatMoney(inv.total)}</T>
+                    <View style={{ alignItems: 'flex-end' }}>
+                      <T size={15} weight="semibold">{formatMoney(inv.total)}</T>
+                      {inv.pending > 0 ? <T size={11} color={colors.warning}>+{formatMoney(inv.pending)} previsto</T> : null}
+                    </View>
                     <Checkbox checked={inv.paid} onPress={() => { db.setPaid(inv.key, !inv.paid); refresh(); }} />
                   </Pressable>
                 </View>
@@ -236,16 +244,6 @@ export default function MonthScreen() {
           <Section title="Contas fixas" total={fixed.reduce((s, i) => s + i.amount, 0)}>
             {fixed.map((i, idx) => <Row key={i.key} item={i} month={month} divider={idx > 0} />)}
           </Section>
-        ) : null}
-
-        {!flat && cardFixed.length > 0 ? (
-          <>
-            <SectionTitle
-              title="Fixos no cartão"
-              right={<T size={12.5} color={colors.muted}>{formatMoney(cardFixed.reduce((s, i) => s + i.amount, 0))} · já nas faturas</T>}
-            />
-            <CardFixedList items={cardFixed} />
-          </>
         ) : null}
 
         {!flat && loanItems.length > 0 ? (
@@ -318,11 +316,12 @@ function Section({ title, total, totalLabel, children }: {
   );
 }
 
-function Summary({ label, value, color, bold }: { label: string; value: number; color: string; bold?: boolean }) {
+function Summary({ label, value, color, bold, sub }: { label: string; value: number; color: string; bold?: boolean; sub?: string }) {
   return (
     <View style={{ flex: 1, alignItems: 'center', gap: 2 }}>
       <T size={12} color={colors.muted}>{label}</T>
       <T size={14.5} weight={bold ? 'bold' : 'semibold'} color={color} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(value)}</T>
+      {sub ? <T size={10.5} color={colors.warning} numberOfLines={1} adjustsFontSizeToFit>{sub}</T> : null}
     </View>
   );
 }
