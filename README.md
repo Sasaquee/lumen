@@ -206,6 +206,8 @@ tracejado é o previsto.
 
 ### Aba Contas
 
+<img src="docs/screenshots/contas.png" width="230" align="right" alt="Aba Contas">
+
 Tudo que sai do bolso no mês num lugar só. No topo, **quanto falta pagar** — o que você
 marca como pago sai da conta, então o número zera quando o mês está quitado — e quanto já
 foi pago, com o que falta separado em faturas, empréstimos e fixos. Embaixo, a fatura de
@@ -216,6 +218,8 @@ ou ainda estão previstas, sem somar de novo o que já está na fatura; a parcel
 pagar e de antecipar; e as parcelas dos próximos meses. O **+** abre um menu com
 lançamento, compra no cartão, empréstimo, financiamento e importar fatura (segurar o +
 vai direto para o lançamento). A tabela passou para *Mais*.
+
+<br clear="right">
 
 ### Tabela e avisos
 

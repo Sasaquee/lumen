@@ -296,7 +296,7 @@
     <div class="reveal">
       <p class="eyebrow">Recursos</p>
       <h2>Toque num item e veja a tela</h2>
-      <p class="sub">Dezessete telas do app, com dados de exemplo. Use as setas do teclado para navegar.</p>
+      <p class="sub">Dezoito telas do app, com dados de exemplo. Use as setas do teclado para navegar.</p>
     </div>
 
     <div class="explorer">
@@ -419,13 +419,14 @@ const svgIcon = n => '<svg class="i" viewBox="0 0 24 24" width="24" height="24" 
 const FEATS = [
   ['inicio','wallet-outline','Sobra prevista','Receitas menos tudo que ainda vai sair, com o quanto da renda já está comprometida e quanto sobra por dia.'],
   ['lancamento','lightning-bolt-outline','Lançar em segundos','Avulso, parcelado ou fixo mensal. No parcelado, informe o total ou o valor da parcela — o app converte um no outro.'],
+  ['contas','wallet-outline','Tudo que falta pagar','Faturas, parcelas de empréstimos e contas fixas do mês num lugar só. O que você marca como pago sai da conta, e as assinaturas no cartão mostram em que fatura caem.'],
   ['fatura','receipt-text-outline','Fatura do cartão','Informe o total e detalhe só o que lembrar. O resto vira "gasto não detalhado" e continua contando no mês.'],
-  ['importar','tray-arrow-down','Importar a fatura','CSV do Nubank, um CSV montado numa planilha ou prints do app do banco. A leitura dos prints é feita no celular, sem internet, e você confere tudo antes de salvar.'],
+  ['importar','tray-arrow-down','Importar a fatura','CSV do Nubank, um CSV montado numa planilha ou prints do app do banco (Neon, Mercado Pago, Itaú, AliExpress). A leitura dos prints é feita no celular, sem internet, e você confere o mês e cada compra antes de salvar.'],
   ['projecao','trending-up','Já cobrado × projeção','O banco só lança a assinatura no dia da cobrança. Veja os dois valores e o que ainda falta cobrar.'],
-  ['emprestimo','bank-outline','Empréstimos e financiamentos','Parcelas iguais ou não, taxa de juros ao mês e ao ano, saldo devedor e quanto custa antecipar cada parcela hoje, pela regra do Banco Central.'],
+  ['emprestimo','bank-outline','Empréstimos e financiamentos','Parcelas iguais ou não, taxa de juros ao mês e ao ano a partir da data da contratação, saldo devedor e quanto custa antecipar cada parcela hoje, pela regra do Banco Central. As parcelas entram na aba Mês, com pagar e antecipar ali mesmo.'],
   ['cartoes','credit-card-outline','Limite de verdade','Limite restante e porcentagem usada, somando as faturas em aberto deste mês em diante.'],
   ['vales','silverware-fork-knife','Vale refeição e alimentação','Cada benefício é uma carteira à parte, com limite e restante próprios. Não entra na sobra do mês, porque esse dinheiro só dá para gastar onde o vale aceita.'],
-  ['mes','filter-variant','O mês filtrado','Filtre por grupo de gasto e por status, ordene por valor, vencimento ou número de parcelas.'],
+  ['mes','filter-variant','O mês filtrado','Filtre por grupo de gasto e por status, ordene por valor, vencimento ou número de parcelas. Cada fatura mostra quanto do total é assinatura que o banco ainda não cobrou.'],
   ['categorias','chart-donut','Para onde o dinheiro foi','Rosca por categoria, com o cartão agrupado ou aberto, e a pizza de pago × a pagar.'],
   ['tendencia','chart-line','12 meses à frente','Barras de receita contra despesa e a linha de projeção, já contando parcelas e fixos.'],
   ['tabela','table','Tabela analítica','6, 12 ou 24 meses em linhas de receita, despesa e sobra, com a variação mês a mês.'],
