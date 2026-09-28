@@ -85,6 +85,8 @@ export default function MoreScreen() {
         <ListRow icon="bank-outline" iconColor="#D4A017" title="Empréstimos e financiamentos" subtitle={s.loans.length ? `${s.loans.length} ${s.loans.length === 1 ? 'contrato' : 'contratos'}` : 'Parcelas, antecipação e saldo devedor'} right={chevron} onPress={() => nav.navigate('Loans')} />
         <Divider />
         <ListRow icon="calendar-sync-outline" iconColor="#E8590C" title="Planejamento" subtitle={`${s.recurrings.length} fixos mensais · parcelamentos`} right={chevron} onPress={() => nav.navigate('Plans')} />
+        <Divider />
+        <ListRow icon="table-large" iconColor="#3987E5" title="Tabela" subtitle="Receitas e despesas mês a mês" right={chevron} onPress={() => nav.navigate('Table')} />
       </Card>
 
       <SectionTitle title="Preferências" />

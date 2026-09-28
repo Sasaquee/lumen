@@ -1,5 +1,5 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import type { Kind, Method } from '../data/types';
+import type { Kind, LoanType, Method } from '../data/types';
 import type { Sort } from '../data/filters';
 
 export type RootStackParamList = {
@@ -24,8 +24,10 @@ export type RootStackParamList = {
   ImportHelp: undefined;
   LockSettings: undefined;
   Loans: undefined;
-  LoanForm: { id?: number };
+  LoanForm: { id?: number; type?: LoanType };
   LoanDetail: { id: number };
+  /** A tabela de meses saiu da barra de abas para dar lugar a Contas. */
+  Table: undefined;
   /** Só na build de desenvolvimento. */
   OcrLab: undefined;
   Cards: undefined;
@@ -46,7 +48,7 @@ export type TabParamList = {
   /** Filtros vindos de outra tela (ex.: um grupo do gráfico de rosca). */
   Month: { groups?: string[]; sort?: Sort; status?: 'all' | 'paid' | 'unpaid'; ts?: number } | undefined;
   Add: undefined;
-  Table: undefined;
+  Accounts: undefined;
   More: undefined;
 };
 

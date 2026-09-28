@@ -84,14 +84,14 @@ const isNoise = (text: string) => NOISE_RE.test(fold(text).trim());
  * fatura, fechamento, vencimento. Esses números vêm do cadastro do cartão e nunca de
  * um print — uma linha assim não vira lançamento.
  */
-const CARD_INFO_RE = /^(limite|valor (parcial|total|da fatura)|total|fatura|saldo|dispon|utilizado|vencimento|vence|fecha|melhor (dia|data)|pagamento minimo|resumo|compras$|produtos e servicos)/;
+const CARD_INFO_RE = /^(limite|valor (parcial|total|da fatura|devido)|total|fatura|saldo|dispon|utilizado|vencimento|vence|fecha|melhor (dia|data)|pagamento minimo|resumo|compras$|produtos e servicos|pague cedo)/;
 const isCardInfo = (text: string) => CARD_INFO_RE.test(fold(text).trim());
 
 /** Palavras do topo da tela: indicam que acima do primeiro cabeçalho de data não há lançamento. */
 const HEADER_RE = /fatura (aberta|atual|fechada|de )|total at[eé] o momento|resumo da fatura|melhor (dia|data)|vencimento|fecha em|vence em|lan[cç]amentos|movimenta[cç][oõ]es|limite|valor parcial/i;
 
 /** Rótulo do total da fatura. "Limite total" não é total de fatura. */
-const TOTAL_RE = /fatura (aberta|atual|fechada)|total at[eé] o momento|total da fatura|valor da fatura|valor parcial|^total$/i;
+const TOTAL_RE = /fatura (aberta|atual|fechada)|total at[eé] o momento|total da fatura|valor da fatura|valor parcial|valor devido|^total$/i;
 
 /** Parcela escrita sozinha numa linha: "1 de 5". Só vale fora da descrição. */
 const LONE_INSTALLMENT_RE = /^(\d{1,3})\s+de\s+(\d{1,3})$/;
@@ -133,7 +133,7 @@ function installmentOf(text: string) {
 }
 
 /**
- * Lê prints da lista de lançamentos da fatura (Neon, Mercado Pago, Itaú, Nubank e parecidos).
+ * Lê prints da lista de lançamentos da fatura (Neon, Mercado Pago, Itaú, AliExpress, Nubank e parecidos).
  *
  * Os apps têm o mesmo desenho: a data (num cabeçalho ou no começo da linha) e linhas com
  * a descrição à esquerda e o valor à direita. O OCR devolve cada pedaço com a posição
@@ -168,18 +168,47 @@ export function parseInvoicePrints(pages: OcrPage[], dueMonth: string, now: stri
       .map((b) => ({ b, d: leadingDate(b.text, dueMonth, now) }))
       .filter((m): m is { b: Box; d: NonNullable<ReturnType<typeof leadingDate>> } => !!m.d && (!m.d.numeric || m.b.left < W * 0.15));
     const firstMark = marks[0]?.b;
-    // topo da tela do banco (total, abas de mês, resumo): nada acima da 1ª data vale
-    const hasTopArea = !!firstMark && bs.some((b) => b.top < firstMark.top && HEADER_RE.test(b.text));
-    const startTop = hasTopArea ? firstMark.top - firstMark.height * 1.5 : -Infinity;
+    const isMoneyAnchor = (b: Box) => b.left > W * 0.45 && !!money(b.text);
 
-    const anchors = bs.filter((b) => b.top >= startTop && b.left > W * 0.45 && money(b.text));
+    // Data embaixo da compra (AliExpress: "Compra / Parcela 2/6 / 21 set."): colada na
+    // última linha da compra de cima e longe da de baixo. Cabeçalho de data é o contrário:
+    // fica mais perto da compra que vem depois.
+    const trailing = new Map<Box, Box>(); // data -> valor da compra a que pertence
+    for (const m of marks) {
+      if (m.d.rest) continue;
+      const owner = [...bs].reverse().find((b) => b.top < m.b.top && isMoneyAnchor(b));
+      // precisa estar colada na compra: a poucas linhas do valor e sem outra data no meio
+      if (!owner || m.b.top - owner.bottom > owner.height * 3) continue;
+      const above = bs.filter((b) => b !== m.b && b.bottom <= m.b.top + m.b.height * 0.3);
+      const nearestAbove = above.reduce<Box | null>((x, b) => (!x || b.bottom > x.bottom ? b : x), null);
+      if (nearestAbove && marks.some((o) => o.b === nearestAbove)) continue;
+      const below = bs.filter((b) => b !== m.b && b.top >= m.b.bottom - m.b.height * 0.3);
+      if (!above.length || !below.length) {
+        // última linha do print: sem nada embaixo, vale a distância para a compra de cima
+        if (above.length && !below.length && m.b.top - Math.max(...above.map((b) => b.bottom)) < m.b.height * 1.2) trailing.set(m.b, owner);
+        continue;
+      }
+      const dUp = m.b.top - Math.max(...above.map((b) => b.bottom));
+      const dDown = Math.min(...below.map((b) => b.top)) - m.b.bottom;
+      if (dUp < dDown * 0.6) trailing.set(m.b, owner);
+    }
+    const headers = marks.filter((m) => !m.d.rest && !trailing.has(m.b));
+
+    // topo da tela do banco (total, abas de mês, resumo): nada acima da 1ª data vale.
+    // Com a data embaixo da compra, a 1ª compra fica acima da 1ª data: o corte é o fim do topo.
+    const topLabels = firstMark ? bs.filter((b) => b.top < firstMark.top && HEADER_RE.test(b.text)) : [];
+    const startTop = !topLabels.length ? -Infinity
+      : trailing.has(firstMark!) ? Math.max(...topLabels.map((b) => b.bottom))
+        : firstMark!.top - firstMark!.height * 1.5;
+
+    const anchors = bs.filter((b) => b.top >= startTop && isMoneyAnchor(b));
     const pageSeen = new Set<string>();
 
     anchors.forEach((a, i) => {
       const next = anchors[i + 1];
       const bandTop = a.top - a.height * 0.8;
       // data sozinha (cabeçalho) acima da compra corta a faixa da compra seguinte
-      const nextHeader = marks.find((m) => !m.d.rest && m.b.top > a.top + a.height * 0.5);
+      const nextHeader = headers.find((m) => m.b.top > a.top + a.height * 0.5);
       // uma compra ocupa no máximo umas quatro linhas: além disso já é o rodapé do app
       const bandBottom = Math.min(
         next ? next.top - next.height * 0.8 : Infinity,
@@ -188,18 +217,23 @@ export function parseInvoicePrints(pages: OcrPage[], dueMonth: string, now: stri
       );
       const inBand = bs.filter((b) => b !== a && b.cy >= bandTop && b.cy < bandBottom);
 
-      // data da própria linha ("28 OUT", "09/09 LOJAS RENNER") vale mais que o cabeçalho
-      const rowMark = marks.find((m) => inBand.includes(m.b) && (m.d.rest || m.b.cy >= a.top - a.height * 0.5));
-      const header = [...marks].reverse().find((m) => !m.d.rest && m.b.top <= a.top + a.height * 0.5);
+      // data da própria linha ("28 OUT", "09/09 LOJAS RENNER", ou embaixo dela) vale mais que o cabeçalho
+      const rowMark = marks.find((m) => trailing.get(m.b) === a)
+        ?? marks.find((m) => !trailing.has(m.b) && inBand.includes(m.b) && (m.d.rest || m.b.cy >= a.top - a.height * 0.5));
+      const header = [...headers].reverse().find((m) => m.b.top <= a.top + a.height * 0.5);
 
       const left = inBand.filter((b) => b.right <= a.left + a.height && b.left < W * 0.6 && !money(b.text));
       // ícone lido como texto ("D:") não tem letra suficiente para ser descrição
-      const descParts = left
+      const candidates = left
         .filter((b) => b !== rowMark?.b && !marks.some((m) => m.b === b && !m.d.rest))
-        .filter((b) => !isNoise(b.text))
-        .filter((b) => b.text.replace(/[^a-zA-Z0-9À-ÿ]/g, '').length > 2 || !!findInstallment(b.text))
-        .map((b) => b.text);
+        .filter((b) => b.text.replace(/[^a-zA-Z0-9À-ÿ]/g, '').length > 2 || !!findInstallment(b.text));
+      const descParts = candidates.filter((b) => !isNoise(b.text)).map((b) => b.text);
       if (rowMark?.d.rest) descParts.unshift(rowMark.d.rest);
+      // o AliExpress não dá o nome da loja, só "Compra": melhor ela que perder a linha
+      if (!descParts.length) {
+        const generic = candidates.find((b) => /^compra\b/i.test(fold(b.text).trim()));
+        if (generic) descParts.push(generic.text);
+      }
       if (!descParts.length) return;
       const rawDesc = descParts.join(' ');
       // limite, total, vencimento: dado do cartão, não compra
@@ -238,7 +272,7 @@ export function parseInvoicePrints(pages: OcrPage[], dueMonth: string, now: stri
     });
 
     for (const s of pageSeen) seenBefore.add(s);
-    const lastHeader = [...marks].reverse().find((m) => !m.d.rest);
+    const lastHeader = [...headers].reverse()[0];
     if (lastHeader) currentDate = lastHeader.d.date;
   });
 

@@ -583,7 +583,8 @@ export class Ledger {
    * O que os contratos movimentam no ciclo: parcelas que vencem nele (menos as já
    * antecipadas), antecipações pagas nele e, se pedido, o dinheiro liberado.
    */
-  private loanItems(cycle: string): Item[] {
+  /** Parcelas, antecipações e valor liberado dos contratos que caem no ciclo. */
+  loanItems(cycle: string): Item[] {
     const out: Item[] = [];
     for (const loan of this.snap.loans) {
       const amounts = loanAmounts(loan);

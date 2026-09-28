@@ -85,7 +85,7 @@ Em vez de digitar compra por compra, importe a fatura na tela do cartão:
 
 - **CSV** — o do Nubank, disponível mesmo com a fatura aberta, ou um que você monta numa
   planilha (`data;descricao;valor`) quando o banco não exporta nem deixa tirar print.
-- **Prints da fatura** — Neon, Mercado Pago, Itaú e parecidos. A leitura (OCR) é feita
+- **Prints da fatura** — Neon, Mercado Pago, Itaú, AliExpress e parecidos. A leitura (OCR) é feita
   **no próprio celular, sem internet**. Dá para escolher vários prints em sequência.
 
 Nada é salvo antes de você conferir: a prévia mostra cada compra com data, parcela e uma
@@ -116,7 +116,12 @@ Cada parcela futura mostra quanto custaria **antecipar hoje**: pela regra do Ban
 (CDC art. 52 e Resolução CMN 3.516), a parcela é trazida a valor presente pela taxa do
 contrato, e o valor muda sozinho a cada dia. Ao registrar uma antecipação, as parcelas saem
 dos meses de origem, o valor pago entra no mês do pagamento e a economia e a taxa efetiva
-aparecem no contrato. Opcionalmente, o valor liberado entra como receita.
+aparecem no contrato. Opcionalmente, o valor liberado entra como receita. A data da
+contratação é pedida no cadastro: os juros correm a partir dela.
+
+As parcelas entram na aba **Mês**, numa seção própria, com o botão de pagar; tocar numa
+parcela oferece **antecipar** ali mesmo, com ela já marcada. A lista de contratos mostra as
+parcelas dos próximos 12 meses, pelo ciclo do mês que você definiu.
 
 Compras parceladas comuns também aceitam **parcelas de valores diferentes**: ajuste "esta"
 ou "esta e as seguintes", e o total vira a soma delas.
@@ -196,6 +201,14 @@ tracejado é o previsto.
 
 <br clear="right">
 
+### Aba Contas
+
+Cartões e contratos do mês num lugar só: a fatura de cada cartão com o limite restante e
+atalhos para ver, importar ou lançar uma compra; a parcela de cada empréstimo com o botão
+de pagar e de antecipar; e as parcelas dos próximos meses. O **+** abre um menu com
+lançamento, compra no cartão, empréstimo, financiamento e importar fatura (segurar o +
+vai direto para o lançamento). A tabela passou para *Mais*.
+
 ### Tabela e avisos
 
 <img src="docs/screenshots/tabela.png" width="230" alt="Tabela analítica">
@@ -270,7 +283,7 @@ src/data/import/           leitura de CSV e de prints (OCR), categorização e c
 src/data/lock.ts           bloqueio: hash da senha, código de recuperação, tempo em segundo plano
 modules/lumen-ocr/         módulo nativo local: OCR do ML Kit no aparelho (modelo latino embutido)
 src/components/            UI base, gráficos, linha de lançamento
-src/screens/               Início, Mês, Tabela, Mais, formulários, fatura, cartões, categorias, ciclo, planos, próximos pagamentos, central de avisos
+src/screens/               Início, Mês, Contas, Mais, Tabela, formulários, fatura, cartões, categorias, ciclo, planos, próximos pagamentos, central de avisos
 src/utils/dates.ts         mês civil e ciclo financeiro (início, fim, a que ciclo uma data pertence)
 src/data/filters.ts        grupos de gastos e ordenações da aba Mês
 src/data/reminders.ts      avisos e central de avisos (lógica pura, testável)
@@ -331,7 +344,7 @@ está ligado e o banco está vazio. Desfaça os três passos antes de gerar a bu
 - **Empréstimos** (`loans`, `loan_prepayments`): parcelas vencem no dia de `first_due` dos meses seguintes. Chaves de pago `l:<contrato>:<parcela>`, `lp:<antecipação>` e `li:<contrato>` (valor liberado como receita). Parcela antecipada some do mês original; a antecipação entra no mês do pagamento como parcela.
 - **Taxa do contrato** (`loanRate`): a taxa interna de retorno — a taxa mensal que faz o valor presente dos pagamentos igualar o valor liberado, contando meses como os bancos (30/360). A **taxa efetiva** faz a mesma conta com o que foi pago de fato nas antecipações. `prepayValue` estima a antecipação trazendo a parcela a valor presente pela taxa do contrato (CDC art. 52 §2º, Resolução CMN 3.516/2007).
 - **OCR** (`parseInvoicePrints`): cada valor na coluna da direita ancora uma compra; a descrição é o texto à esquerda na mesma faixa. A data vem de um cabeçalho ("25 de setembro", "Hoje") ou do começo da linha ("28 OUT", "09/09 LOJA"); data numérica só vale na coluna da esquerda, senão "3/9" (parcela) viraria 3 de setembro. Sem ano na tela, a parcela X implica compra pelo menos X-1 meses antes do vencimento. Linhas de limite, total e vencimento são descartadas (`isCardInfo`). O módulo nativo amplia prints com menos de 900 px de largura antes do OCR.
-- **Bateria de testes do OCR:** prints falsos gerados com gabarito (vários layouts de banco, claro/escuro, 390 a 1080 px, fontes diferentes) rodam no OCR real do aparelho pela tela *Laboratório de OCR* (só na build de desenvolvimento), e o parser é medido contra o gabarito no PC. Resultado atual: 104 de 105 compras exatas, 15 de 16 totais; os três prints reais de referência (Neon, Mercado Pago, Itaú) saem 100% certos.
+- **Bateria de testes do OCR:** prints falsos gerados com gabarito (vários layouts de banco, claro/escuro, 390 a 1080 px, fontes diferentes) rodam no OCR real do aparelho pela tela *Laboratório de OCR* (só na build de desenvolvimento), e o parser é medido contra o gabarito no PC. Resultado atual: 110 de 111 compras exatas, 16 de 17 totais; os quatro prints reais de referência (Neon, Mercado Pago, Itaú, AliExpress) saem 100% certos. No AliExpress a data vem embaixo da compra; o parser distingue esse caso de um cabeçalho de data pela distância até a compra de cima e a de baixo.
 - **Bloqueio** (`lock_*` em `settings`): SHA-256 com sal do segredo e do código de recuperação (16 caracteres de um alfabeto sem 0/O/1/I/L, gerado por `expo-crypto`). As chaves `lock_*` ficam fora do backup exportado e restaurar um backup não mexe nelas. Cinco erros seguidos travam por 30 s.
 - O teto de `MAX_SCHEDULED` existe porque o Android limita alarmes pendentes; ficam os vencimentos mais próximos.
 

@@ -10,7 +10,7 @@ import { ParcelEditor } from '../components/ParcelEditor';
 import type { RootProps } from '../navigation/types';
 import { useStore } from '../data/store';
 import * as db from '../data/db';
-import { loanAmounts, loanParcelDate, loanRate, prepayValue, type LoanParcel, type LoanSummary } from '../data/engine';
+import { loanAmounts, loanParcelDate, loanRate, prepayValue, type Item, type LoanParcel, type LoanSummary } from '../data/engine';
 import { METHOD_ICONS, METHOD_LABELS, type LoanType, type Method } from '../data/types';
 import { addMonths, dateInMonth, dayOf, formatDate, formatDateLong, fromISODate, monthLabel, monthOf, monthShort, toISODate, today } from '../utils/dates';
 import { formatMoney, formatRate } from '../utils/money';
@@ -44,11 +44,8 @@ export function LoansScreen({ navigation }: RootProps<'Loans'>) {
   const running = summaries.filter((s) => !s.finished);
   const finished = summaries.filter((s) => s.finished);
   const owed = running.reduce((s, x) => s + x.remaining, 0);
-  const thisMonth = ledger.currentCycle();
-  const monthly = running.reduce(
-    (s, x) => s + x.parcels.filter((p) => p.status !== 'prepaid' && ledger.cycleOf(p.date) === thisMonth).reduce((a, p) => a + p.amount, 0),
-    0,
-  );
+  const thisCycle = ledger.currentCycle();
+  const monthly = loanCycleTotal(ledger.loanItems(thisCycle));
 
   return (
     <ScrollView style={{ flex: 1, backgroundColor: colors.bg }} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
@@ -59,8 +56,9 @@ export function LoansScreen({ navigation }: RootProps<'Loans'>) {
             <T size={18} weight="bold" color={colors.warning} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(owed)}</T>
           </Card>
           <Card style={{ flex: 1, gap: 4 }}>
-            <T size={12.5} color={colors.muted}>Parcelas neste mês</T>
+            <T size={12.5} color={colors.muted}>Parcelas em {monthShort(thisCycle)}</T>
             <T size={18} weight="bold" color={colors.expense} numberOfLines={1} adjustsFontSizeToFit>{formatMoney(monthly)}</T>
+            {ledger.customCycle ? <T size={11} color={colors.muted}>{ledger.cycleRange(thisCycle)}</T> : null}
           </Card>
         </View>
       ) : (
@@ -76,11 +74,80 @@ export function LoansScreen({ navigation }: RootProps<'Loans'>) {
       {running.length ? <SectionTitle title="Em andamento" /> : null}
       {running.map((s) => <LoanCard key={s.loan.id} s={s} onPress={() => navigation.navigate('LoanDetail', { id: s.loan.id })} />)}
 
+      {running.length ? (
+        <>
+          <SectionTitle title="Próximos meses" right={<T size={12.5} color={colors.muted}>toque para ver as parcelas</T>} />
+          <LoanMonthsAhead from={thisCycle} count={12} />
+        </>
+      ) : null}
+
       {finished.length ? <SectionTitle title="Quitados" /> : null}
       {finished.map((s) => <LoanCard key={s.loan.id} s={s} onPress={() => navigation.navigate('LoanDetail', { id: s.loan.id })} />)}
 
       <Button style={{ marginTop: 16 }} title="Novo contrato" icon="plus" variant={summaries.length ? 'secondary' : 'primary'} onPress={() => navigation.navigate('LoanForm', {})} />
     </ScrollView>
+  );
+}
+
+/** O que os contratos cobram no ciclo: parcelas e antecipações pagas nele. */
+export function loanCycleTotal(items: Item[]) {
+  return items.filter((i) => i.kind === 'expense').reduce((s, i) => s + i.amount, 0);
+}
+
+/**
+ * Parcelas dos contratos mês a mês (pelo ciclo do usuário). Tocar num mês abre as
+ * parcelas dele, com o botão de marcar como paga.
+ */
+export function LoanMonthsAhead({ from, count = 6 }: { from: string; count?: number }) {
+  const { ledger, refresh } = useStore();
+  const [open, setOpen] = useState<string | null>(null);
+  const rows = useMemo(() => Array.from({ length: count }, (_, i) => {
+    const cycle = addMonths(from, i);
+    const items = ledger.loanItems(cycle).filter((it) => it.kind === 'expense');
+    return { cycle, items, total: loanCycleTotal(items), paid: items.filter((it) => it.paid).reduce((s, it) => s + it.amount, 0) };
+  }).filter((r) => r.items.length), [ledger, from, count]);
+
+  if (!rows.length) {
+    return <Card><T size={13} color={colors.muted} align="center">Nenhuma parcela nos próximos meses.</T></Card>;
+  }
+  return (
+    <Card padded={false} style={{ paddingVertical: 4 }}>
+      {rows.map((r, i) => {
+        const expanded = open === r.cycle;
+        const done = r.paid >= r.total;
+        return (
+          <View key={r.cycle}>
+            {i > 0 && <Divider />}
+            <Pressable onPress={() => setOpen(expanded ? null : r.cycle)} style={({ pressed }) => [styles.monthRow, pressed && { backgroundColor: colors.surface2 }]}>
+              <View style={{ flex: 1, gap: 2 }}>
+                <T size={14.5} weight="medium">{monthLabel(r.cycle)}</T>
+                <T size={12} color={colors.muted} numberOfLines={1}>
+                  {r.items.length} {r.items.length === 1 ? 'parcela' : 'parcelas'}
+                  {ledger.customCycle ? ` · ${ledger.cycleRange(r.cycle)}` : ''}
+                </T>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <T size={15} weight="semibold">{formatMoney(r.total)}</T>
+                {r.paid > 0 ? <T size={11.5} color={colors.primary}>{done ? 'tudo pago' : `${formatMoney(r.paid)} pago`}</T> : null}
+              </View>
+              <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={colors.muted} />
+            </Pressable>
+            {expanded ? r.items.map((it) => (
+              <View key={it.key} style={styles.monthItem}>
+                <View style={{ flex: 1 }}>
+                  <T size={13.5} numberOfLines={1}>{it.description}</T>
+                  <T size={12} color={colors.muted}>
+                    {it.installment ? `${it.installment.index}/${it.installment.total} · ` : ''}vence {formatDate(it.date)}
+                  </T>
+                </View>
+                <T size={13.5} weight="semibold">{formatMoney(it.amount)}</T>
+                <Checkbox checked={it.paid} onPress={() => { db.setPaid(it.key, !it.paid); refresh(); }} />
+              </View>
+            )) : null}
+          </View>
+        );
+      })}
+    </Card>
   );
 }
 
@@ -123,12 +190,12 @@ export function LoanFormScreen({ route, navigation }: RootProps<'LoanForm'>) {
   const existing = route.params?.id ? ledger.loan(route.params.id) : undefined;
   const initialAmounts = existing ? loanAmounts(existing) : [];
 
-  const [type, setType] = useState<LoanType>(existing?.type ?? 'emprestimo');
+  const [type, setType] = useState<LoanType>(existing?.type ?? route.params?.type ?? 'emprestimo');
   const [description, setDescription] = useState(existing?.description ?? '');
   const [lender, setLender] = useState(existing?.lender ?? '');
   const [principal, setPrincipal] = useState(existing?.principal_cents ?? 0);
   const [releaseDate, setReleaseDate] = useState(existing?.release_date ?? today());
-  const [asIncome, setAsIncome] = useState(existing ? !!existing.as_income : true);
+  const [asIncome, setAsIncome] = useState(existing ? !!existing.as_income : route.params?.type !== 'financiamento');
   const [count, setCount] = useState(String(initialAmounts.length || 12));
   const [firstDue, setFirstDue] = useState(existing?.first_due ?? dateInMonth(addMonths(monthOf(today()), 1), dayOf(today())));
   const [parcel, setParcel] = useState(initialAmounts[0] ?? 0);
@@ -510,11 +577,13 @@ export function LoanDetailScreen({ route, navigation }: RootProps<'LoanDetail'>)
  * Antecipação: escolhe as parcelas (o comum é quitar de trás para frente, que é onde
  * o desconto de juros é maior) e informa quanto pagou e quando.
  */
-function PrepaySheet({ visible, onClose, summary, onDone }: {
+export function PrepaySheet({ visible, onClose, summary, onDone, initial }: {
   visible: boolean; onClose: () => void; summary: LoanSummary; onDone: () => void;
+  /** Parcelas já marcadas ao abrir (0-based), ex.: a parcela tocada na lista do mês. */
+  initial?: number[];
 }) {
   const open = summary.parcels.filter((p) => p.status === 'open' || p.status === 'late');
-  const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [selected, setSelected] = useState<Set<number>>(() => new Set(initial ?? []));
   const [paid, setPaid] = useState<number | null>(null);
   const [date, setDate] = useState(today());
 
@@ -601,6 +670,8 @@ const styles = StyleSheet.create({
   parcelRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, paddingVertical: 10 },
   parcelNum: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   payoff: { flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: colors.primarySoft, borderRadius: 12, padding: 12 },
+  monthRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 14, paddingVertical: 11 },
+  monthItem: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingLeft: 26, paddingRight: 14, paddingVertical: 8, backgroundColor: colors.surface2 },
   pickRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, height: 46 },
   note: { flexDirection: 'row', gap: 8, backgroundColor: colors.surface2, borderRadius: 12, padding: 12, marginTop: 14 },
 });

@@ -204,7 +204,7 @@ export default function ImportInvoiceScreen({ route, navigation }: RootProps<'Im
             <SourceCard
               icon="cellphone-screenshot"
               title="Prints da fatura"
-              text="Neon, Mercado Pago, Itaú e outros: tire prints da lista de lançamentos e escolha na ordem, de cima para baixo. Pode escolher vários."
+              text="Neon, Mercado Pago, Itaú, AliExpress e outros: tire prints da lista de lançamentos e escolha na ordem, de cima para baixo. Pode escolher vários."
               onPress={pickPrints}
             />
             <Pressable onPress={() => navigation.navigate('ImportHelp')} style={styles.helpLink}>

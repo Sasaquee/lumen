@@ -93,7 +93,9 @@ export default function MonthScreen() {
   };
 
   const fixed = expenses.filter((i) => i.source === 'recurring');
-  const others = expenses.filter((i) => i.source !== 'recurring');
+  // parcelas e antecipações de contratos têm seção própria: é onde se controla o que já foi pago
+  const loanItems = expenses.filter((i) => i.source !== 'recurring' && i.loanId != null);
+  const others = expenses.filter((i) => i.source !== 'recurring' && i.loanId == null);
   const invoices = filter === 'income' || flat ? [] : data.invoices.filter((i) => keepStatus(i.paid));
   const flatList = flat ? sortItems([...expenses, ...incomes], sort) : [];
   const flatTotal = flatList.reduce((s, i) => s + (i.kind === 'income' ? 0 : i.amount), 0);
@@ -233,6 +235,12 @@ export default function MonthScreen() {
           </Section>
         ) : null}
 
+        {!flat && loanItems.length > 0 ? (
+          <Section title="Empréstimos e financiamentos" total={loanItems.reduce((s, i) => s + i.amount, 0)}>
+            {loanItems.map((i, idx) => <Row key={i.key} item={i} month={month} divider={idx > 0} />)}
+          </Section>
+        ) : null}
+
         {!flat && others.length > 0 ? (
           <Section title="Parcelas e avulsos" total={others.reduce((s, i) => s + i.amount, 0)}>
             {others.map((i, idx) => <Row key={i.key} item={i} month={month} divider={idx > 0} />)}
@@ -244,7 +252,7 @@ export default function MonthScreen() {
             <Icon name="gesture-tap" size={15} color={colors.muted} />
             <T size={12.5} color={colors.muted} align="center" style={{ flex: 1 }}>
               Toque em um item para editar, ajustar o valor ou excluir.{'\n'}
-              Os gastos do cartão ficam dentro da fatura.
+              Os gastos do cartão ficam dentro da fatura. Toque numa parcela de contrato para antecipar.
             </T>
           </View>
         ) : null}

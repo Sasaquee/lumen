@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
@@ -18,6 +18,8 @@ import MonthScreen from './src/screens/MonthScreen';
 import PlansScreen from './src/screens/PlansScreen';
 import TableScreen from './src/screens/TableScreen';
 import MoreScreen from './src/screens/MoreScreen';
+import AccountsScreen from './src/screens/AccountsScreen';
+import { AddMenu } from './src/components/AddMenu';
 import EntryFormScreen from './src/screens/EntryFormScreen';
 import InvoiceScreen from './src/screens/InvoiceScreen';
 import { CardFormScreen, CardsScreen } from './src/screens/CardsScreens';
@@ -54,20 +56,23 @@ const Tab = createBottomTabNavigator<TabParamList>();
 const TAB_ICONS: Record<string, [string, string, string]> = {
   Home: ['view-dashboard', 'view-dashboard-outline', 'Início'],
   Month: ['format-list-bulleted-square', 'format-list-bulleted-square', 'Mês'],
-  Table: ['table-large', 'table-large', 'Tabela'],
+  Accounts: ['wallet', 'wallet-outline', 'Contas'],
   More: ['dots-grid', 'dots-grid', 'Mais'],
 };
 
 function TabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
+  const [adding, setAdding] = useState(false);
   return (
     <View style={[styles.tabBar, { paddingBottom: insets.bottom + 6 }]}>
+      <AddMenu visible={adding} onClose={() => setAdding(false)} go={(screen, params) => (navigation.getParent() as any)?.navigate(screen, params)} />
       {state.routes.map((route, index) => {
         if (route.name === 'Add') {
           return (
             <View key={route.key} style={styles.tabItem}>
               <Pressable
-                onPress={() => { tap(); navigation.getParent()?.navigate('EntryForm', {}); }}
+                onPress={() => { tap(); setAdding(true); }}
+                onLongPress={() => { tap(); navigation.getParent()?.navigate('EntryForm', {}); }}
                 style={({ pressed }) => [styles.addButton, pressed && { transform: [{ scale: 0.94 }] }]}
               >
                 <Icon name="plus" size={30} color="#062414" />
@@ -105,7 +110,7 @@ function Tabs() {
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Month" component={MonthScreen} />
       <Tab.Screen name="Add" component={HomeScreen} />
-      <Tab.Screen name="Table" component={TableScreen} />
+      <Tab.Screen name="Accounts" component={AccountsScreen} />
       <Tab.Screen name="More" component={MoreScreen} />
     </Tab.Navigator>
     {/* faixa atrás da status bar para o conteúdo não rolar por baixo do relógio */}
@@ -170,6 +175,7 @@ export default function App() {
             <Stack.Screen name="Cycle" component={CycleScreen} options={{ title: 'Ciclo do mês' }} />
             <Stack.Screen name="Upcoming" component={UpcomingScreen} options={{ title: 'Próximos pagamentos' }} />
             <Stack.Screen name="Plans" component={PlansScreen} options={{ title: 'Planejamento' }} />
+            <Stack.Screen name="Table" component={TableScreen} options={{ title: 'Tabela' }} />
             <Stack.Screen name="Notifications" component={NotificationsScreen} options={{ title: 'Lembretes' }} />
             <Stack.Screen name="NotificationCenter" component={NotificationCenterScreen} options={{ title: 'Central de avisos' }} />
             <Stack.Screen name="CategoryForm" component={CategoryFormScreen} options={{ title: 'Categoria' }} />

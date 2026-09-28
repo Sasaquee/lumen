@@ -9,6 +9,7 @@ import * as db from '../data/db';
 import { addMonths, formatDate, monthLabel, monthOf } from '../utils/dates';
 import { formatMoney } from '../utils/money';
 import { METHOD_LABELS } from '../data/types';
+import { PrepaySheet } from '../screens/LoansScreens';
 
 export function itemSubtitle(item: Item, categoryName?: string, walletName?: string) {
   const parts: string[] = [];
@@ -38,6 +39,7 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
   const [menu, setMenu] = useState(false);
   const [editAmount, setEditAmount] = useState<number | null>(null);
   const [removing, setRemoving] = useState(false);
+  const [prepaying, setPrepaying] = useState(false);
   const cat = ledger.category(item.categoryId);
   const isIncome = item.kind === 'income';
   const inCard = item.cardId != null;
@@ -57,6 +59,9 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
   const chargeMonth = item.chargeMonth ?? monthOf(item.date);
 
   const openLoan = () => { setMenu(false); nav.navigate('LoanDetail', { id: item.loanId! }); };
+  // parcela de contrato ("l:<contrato>:<índice>") ainda em aberto pode ser antecipada daqui
+  const loanParcel = item.key.startsWith('l:') && !item.paid ? Number(item.key.split(':')[2]) : null;
+  const loan = item.loanId != null ? ledger.loan(item.loanId) : undefined;
 
   const edit = () => {
     setMenu(false);
@@ -147,7 +152,12 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
               <SheetAction icon="credit-card-outline" label="Ver fatura" onPress={() => { setMenu(false); nav.navigate('Invoice', { cardId: item.cardId!, month: item.invoiceMonth ?? month }); }} />
             )}
             {item.loanId != null ? (
-              <SheetAction icon="bank-outline" label="Ver contrato" onPress={openLoan} />
+              <>
+                {loanParcel != null && loan ? (
+                  <SheetAction icon="fast-forward" label="Antecipar parcelas" onPress={() => { setMenu(false); setPrepaying(true); }} />
+                ) : null}
+                <SheetAction icon="bank-outline" label="Ver contrato" onPress={openLoan} />
+              </>
             ) : synthetic ? (
               <T size={12.5} color={colors.muted} style={{ paddingHorizontal: 12, paddingVertical: 8, lineHeight: 18 }}>
                 É a parte do total informado que ainda não foi detalhada. Para mudar, ajuste o total da fatura
@@ -165,6 +175,15 @@ export function ItemRow({ item, month, showCheck = true }: { item: Item; month: 
           </>
         )}
       </Sheet>
+      {prepaying && loan ? (
+        <PrepaySheet
+          visible
+          summary={ledger.loanSummary(loan)}
+          initial={loanParcel != null ? [loanParcel] : undefined}
+          onClose={() => setPrepaying(false)}
+          onDone={() => { setPrepaying(false); refresh(); }}
+        />
+      ) : null}
     </>
   );
 }

@@ -1,6 +1,5 @@
 import React, { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../theme';
 import { Card, MonthSwitcher, SectionTitle, Segmented, T, tap } from '../components/ui';
@@ -24,7 +23,6 @@ type Row = {
 };
 
 export default function TableScreen() {
-  const insets = useSafeAreaInsets();
   const nav = useNavigation();
   const { ledger, month, setMonth } = useStore();
   const [span, setSpan] = useState<'6' | '12' | '24'>('12');
@@ -64,8 +62,7 @@ export default function TableScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
-      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
-        <T size={24} weight="extrabold" style={{ letterSpacing: -0.5, paddingHorizontal: 2 }}>Tabela</T>
+      <View style={{ paddingTop: 4, paddingHorizontal: 16, gap: 12, paddingBottom: 8 }}>
         <MonthSwitcher month={month} onChange={setMonth} hint={ledger.customCycle ? ledger.cycleRange(month) : undefined} />
         <Segmented
           value={span}
